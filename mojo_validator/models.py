@@ -3,6 +3,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 class Issue(BaseModel):
+    issue_id: str
     row_idx: int
     column: str
     severity: str  # BLOCKER, WARNING, PASS

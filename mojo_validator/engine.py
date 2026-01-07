@@ -64,6 +64,7 @@ class ValidatorEngine:
             if col not in row:
                 if validator.get('required', False):
                     row_issues.append(Issue(
+                        issue_id=f"{idx}_{col}_missing",
                         row_idx=idx,
                         column=col,
                         severity="BLOCKER",
@@ -77,6 +78,7 @@ class ValidatorEngine:
             # Null Check
             if pd.isna(val) and validator.get('required', False):
                  row_issues.append(Issue(
+                        issue_id=f"{idx}_{col}_null",
                         row_idx=idx,
                         column=col,
                         severity="BLOCKER",
@@ -87,6 +89,7 @@ class ValidatorEngine:
             # Value list check
             if 'values' in validator and val not in validator['values']:
                  row_issues.append(Issue(
+                        issue_id=f"{idx}_{col}_value",
                         row_idx=idx,
                         column=col,
                         severity="WARNING",
@@ -98,6 +101,7 @@ class ValidatorEngine:
             # Length check
             if 'max_length' in validator and isinstance(val, str) and len(val) > validator['max_length']:
                  row_issues.append(Issue(
+                        issue_id=f"{idx}_{col}_len",
                         row_idx=idx,
                         column=col,
                         severity="WARNING",
