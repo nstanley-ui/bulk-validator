@@ -4,12 +4,13 @@ import json
 import os
 import random
 import re
+import requests
 from io import BytesIO
 
 # --- CONFIGURATION & HIGH CONTRAST THEME ---
 st.set_page_config(page_title="Mojo Validator Pro", page_icon="🧬", layout="wide")
 
-# CUSTOM CSS: Clean, High-Contrast, Professional
+# CUSTOM CSS
 st.markdown("""
 <style>
     /* Main Background */
@@ -24,7 +25,7 @@ st.markdown("""
         font-weight: 800;
         letter-spacing: -0.5px;
     }
-    /* Cards/Containers */
+    /* Cards */
     div[data-testid="stBorder"] {
         background-color: #FFFFFF;
         border: 1px solid #D1D5DB;
@@ -40,7 +41,7 @@ st.markdown("""
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
-    /* Button Tweaks for density */
+    /* Buttons */
     div.stButton > button {
         width: 100%;
         border-radius: 4px;
@@ -69,7 +70,53 @@ def save_memory(new_rules):
     with open(MEMORY_FILE, 'w') as f:
         json.dump(current_memory, f)
 
-# --- 2. PLATFORM DETECTION ---
+# --- 2. LINK CHECKER (Cached) ---
+@st.cache_data(show_spinner=False, ttl=600) # Cache results for 10 mins
+def check_link_health(url):
+    """
+    Pings the URL to check for 404s, timeouts, or redirects.
+    Returns: (Proposed Fix, Reason) or (None, None)
+    """
+    if not url or not isinstance(url, str):
+        return None, None
+        
+    # 1. Basic Syntax Check
+    if not url.startswith(('http://', 'https://')):
+        return "https://" + url, "Missing Protocol (https://)"
+    
+    if " " in url:
+        return url.replace(" ", ""), "Space in URL"
+
+    # 2. Live Connectivity Check
+    # We pretend httpstat.us URLs are real failures for the demo
+    try:
+        # User-Agent to avoid getting blocked by some firewalls
+        headers = {'User-Agent': 'MojoValidator/1.0'}
+        response = requests.head(url, headers=headers, timeout=2.0, allow_redirects=True)
+        
+        # Fallback to GET if HEAD fails (some servers block HEAD)
+        if response.status_code == 405:
+            response = requests.get(url, headers=headers, timeout=2.0, stream=True)
+            
+        code = response.status_code
+        
+        if code == 404:
+            return None, "❌ Dead Link (404 Not Found)"
+        elif code >= 500:
+            return None, f"❌ Server Error ({code})"
+        elif code == 403:
+            return None, "⚠️ Access Forbidden (403) - Check Permissions"
+            
+    except requests.Timeout:
+        return None, "🟠 Slow Response (>2s Timeout)"
+    except requests.ConnectionError:
+        return None, "❌ Connection Failed (DNS/Network)"
+    except Exception as e:
+        return None, f"⚠️ Error: {str(e)}"
+
+    return None, None
+
+# --- 3. PLATFORM DETECTION ---
 def detect_platform(df):
     columns = set(df.columns)
     if {'Title', 'Body', 'Link URL'}.issubset(columns):
@@ -81,7 +128,7 @@ def detect_platform(df):
     else:
         return "Unknown"
 
-# --- 3. REJECTION LOGIC & POLICY CHECKS ---
+# --- 4. REJECTION LOGIC & POLICY CHECKS ---
 def check_policy_violations(text, platform):
     if not isinstance(text, str): return None, None
     text_lower = text.lower()
@@ -113,16 +160,15 @@ def check_policy_violations(text, platform):
 
     return None, None
 
-# --- 4. MAIN ANALYZER ---
-def analyze_row(row, index, platform, memory, filename, ignored_set):
+# --- 5. MAIN ANALYZER ---
+def analyze_row(row, index, platform, memory, filename, ignored_set, check_links_enabled):
     issues = []
     
-    # Helper to check if issue is ignored
     def is_ignored(col_name):
         key = f"{filename}|{index}|{col_name}"
         return key in ignored_set
 
-    # URL CHECK
+    # URL CHECK (COMMON)
     url_col = None
     if 'Final URL' in row: url_col = 'Final URL'
     elif 'Destination URL' in row: url_col = 'Destination URL'
@@ -130,10 +176,23 @@ def analyze_row(row, index, platform, memory, filename, ignored_set):
     
     if url_col and pd.notna(row[url_col]) and not is_ignored(url_col):
         url = str(row[url_col])
+        
+        # 1. Syntax Check (Always run)
         if ' ' in url:
             issues.append({'col': url_col, 'original': url, 'proposed': url.replace(' ', ''), 'reason': 'Space in URL'})
-        if not url.startswith(('http://', 'https://')):
-            issues.append({'col': url_col, 'original': url, 'proposed': 'https://' + url, 'reason': 'Missing http/https'})
+        elif not url.startswith(('http://', 'https://')):
+            issues.append({'col': url_col, 'original': url, 'proposed': 'https://' + url, 'reason': 'Missing Protocol'})
+        
+        # 2. Live Health Check (If enabled)
+        elif check_links_enabled:
+            fix, reason = check_link_health(url)
+            if reason:
+                 # If it's a fixable protocol error (returned by function)
+                 if fix: 
+                     issues.append({'col': url_col, 'original': url, 'proposed': fix, 'reason': reason})
+                 else:
+                     # If it's a Dead Link (404), we don't have a proposed fix, just a flag
+                     issues.append({'col': url_col, 'original': url, 'proposed': url, 'reason': reason})
 
     # PLATFORM SPECIFIC
     if platform == "Google Ads":
@@ -201,16 +260,25 @@ def analyze_row(row, index, platform, memory, filename, ignored_set):
 
     return issues
 
-# --- 5. DEMO GENERATOR ---
+# --- 6. DEMO GENERATOR ---
 def generate_demo(platform):
     output = BytesIO()
     data = []
     
+    # We use httpstat.us to simulate real HTTP errors
+    broken_url = "https://httpstat.us/404"
+    server_err_url = "https://httpstat.us/500"
+    good_url = "https://www.google.com"
+    
     if platform == 'google':
         for i in range(50):
-            row = {'Headline': f"Valid Headline {i}", 'Description': "Desc", 'Final URL': "https://site.com", 'Max CPC': None}
-            if i == 0: row['Headline'] = "Invest in Bitcoin"
-            if i == 1: row['Headline'] = "Prescription Meds"
+            row = {'Headline': f"Valid Headline {i}", 'Description': "Desc", 'Final URL': good_url, 'Max CPC': None}
+            if i == 0: 
+                row['Headline'] = "Invest in Bitcoin"
+                row['Final URL'] = broken_url # 404
+            if i == 1: 
+                row['Headline'] = "Prescription Meds"
+                row['Final URL'] = server_err_url # 500
             if i == 2: row['Headline'] = "THIS IS SHOUTING"
             if i == 3: row['Headline'] = "Headline Too Long For Google Ads"
             if i == 4: row['Max CPC'] = 1.50
@@ -218,16 +286,20 @@ def generate_demo(platform):
             
     elif platform == 'linkedin':
         for i in range(50):
-            row = {'Campaign Name': 'Q1', 'Headline': f"Professional Update {i}", 'Introductory Text': "Intro", 'Destination URL': "https://li.com", 'Image File Name': f"img_{i}.jpg", 'Call to Action': 'LEARN_MORE'}
-            if i == 0: row['Headline'] = "You won't believe this shocking trick"
+            row = {'Campaign Name': 'Q1', 'Headline': f"Professional Update {i}", 'Introductory Text': "Intro", 'Destination URL': good_url, 'Image File Name': f"img_{i}.jpg", 'Call to Action': 'LEARN_MORE'}
+            if i == 0: 
+                row['Headline'] = "You won't believe this shocking trick"
+                row['Destination URL'] = broken_url # 404
             if i == 1: row['Headline'] = "This headline is way too long for LinkedIn mobile devices and will cut off"
             if i == 2: row['Call to Action'] = "CLICK HERE"
             data.append(row)
 
     elif platform == 'meta':
         for i in range(50):
-            row = {'Campaign Name': 'Social', 'Title': f"Fresh Look {i}", 'Body': "Vibes.", 'Link URL': "https://meta.com", 'Image': f"pic_{i}.jpg"}
-            if i == 0: row['Body'] = "Are you tired of being overweight?"
+            row = {'Campaign Name': 'Social', 'Title': f"Fresh Look {i}", 'Body': "Vibes.", 'Link URL': good_url, 'Image': f"pic_{i}.jpg"}
+            if i == 0: 
+                row['Body'] = "Are you tired of being overweight?"
+                row['Link URL'] = broken_url # 404
             if i == 1: row['Title'] = "Work from home get rich"
             if i == 2: row['Title'] = "This Title Is Too Long For Meta Feed"
             data.append(row)
@@ -245,40 +317,41 @@ def to_excel(df):
 
 # --- APP UI START ---
 
-# INITIALIZE STATE
 if 'file_cache' not in st.session_state:
     st.session_state.file_cache = {}
 if 'ignored_issues' not in st.session_state:
-    st.session_state.ignored_issues = set() # Stores "filename|index|col"
+    st.session_state.ignored_issues = set()
+if 'user_edits' not in st.session_state:
+    st.session_state.user_edits = {}
 
 # SIDEBAR
 with st.sidebar:
     st.markdown("### 🧬 Mojo Validator Pro")
-    st.caption("Internal Release v1.1")
+    st.caption("Internal Release v1.3")
     
     st.info("""
-    **NEW ACTIONS:**
+    **HOW TO FIX:**
     
-    ✅ **Fix:** Apply the suggested edit.
-    
-    🙈 **Ignore:** Keep original text & stop flagging.
-    
-    🗑️ **Exclude:** Remove this row from the clean file.
+    1. **Accept AI Fix:** Click '✅ Fix' to use our suggestion.
+    2. **Write Your Own:** Edit the text box, then click '🔄 Recheck'.
+    3. **Ignore:** Whitelist the error.
     """)
     
     st.divider()
     
-    st.markdown("**Test Mode:**")
-    st.caption("1. Download Demo Files below.")
-    st.caption("2. Upload them to the dropzone.")
-    st.caption("3. Try ignoring and excluding errors.")
+    # NEW: LINK CHECKER TOGGLE
+    check_links = st.toggle("Live Link Checker", value=True, help="Pings every URL to check for 404s. Disable for faster processing on massive files.")
+    if check_links:
+        st.caption("🟢 Link Checks Active")
+    else:
+        st.caption("⚪ Link Checks Paused")
 
 # MAIN HEADER
 st.title("Mojo // Creative Validator")
-st.markdown("Multi-platform compliance engine. Upload your bulk sheets to automatically fix API errors and policy violations.")
+st.markdown("Multi-platform compliance engine. Upload your bulk sheets to automatically fix API errors, policy violations, and broken landing pages.")
 
 # DEMO DOWNLOADS
-with st.expander("📂 Download Test Data (50 Rows)", expanded=False):
+with st.expander("📂 Download Test Data (With 404 Errors)", expanded=False):
     c1, c2, c3 = st.columns(3)
     c1.download_button("Google Ads .xlsx", generate_demo('google'), "mojo_google_demo.xlsx")
     c2.download_button("LinkedIn Ads .xlsx", generate_demo('linkedin'), "mojo_linkedin_demo.xlsx")
@@ -305,7 +378,6 @@ if uploaded_files:
 if st.session_state.file_cache:
     memory = load_memory()
     
-    # Iterate files (List conversion to allow modifying dict size if needed, though we only modify values)
     file_keys = list(st.session_state.file_cache.keys())
     
     for filename in file_keys:
@@ -316,7 +388,6 @@ if st.session_state.file_cache:
         # --- FILE HEADER ---
         st.markdown(f"### 📄 {filename}")
         
-        # BADGES
         badge_style = "background:#E9ECEF; color:#495057; border:1px solid #CED4DA"
         if platform == "Google Ads":
             badge_style = "background:#E8F0FE; color:#1A73E8; border:1px solid #1A73E8"
@@ -326,80 +397,98 @@ if st.session_state.file_cache:
             badge_style = "background:#F3E5F5; color:#833AB4; border:1px solid #833AB4"
             
         st.markdown(f'<span class="platform-badge" style="{badge_style}">{platform}</span>', unsafe_allow_html=True)
-        st.write("") # Spacer
+        st.write("") 
 
-        # ANALYZE
+        # ANALYZE (With Link Checker if enabled)
         rows_with_issues = []
         clean_rows_indices = []
         
-        # Because we might drop rows (Exclude), we need to be careful with iteration
-        # We iterate over the dataframe's current index
         for idx in df.index:
             row = df.loc[idx]
-            issues = analyze_row(row, idx, platform, memory, filename, st.session_state.ignored_issues)
+            issues = analyze_row(row, idx, platform, memory, filename, st.session_state.ignored_issues, check_links)
             if issues:
                 rows_with_issues.append({'index': idx, 'row': row, 'issues': issues})
             else:
                 clean_rows_indices.append(idx)
         
-        # TABS
-        tab1, tab2 = st.tabs([f"🔴 Review Errors ({len(rows_with_issues)})", f"✅ Valid Data ({len(clean_rows_indices)})"])
-        
-        with tab1:
-            if rows_with_issues:
-                for item in rows_with_issues:
-                    idx = item['index']
-                    issues = item['issues']
+        # --- ERROR REVIEW SECTION ---
+        if rows_with_issues:
+            st.markdown(f"##### 🔴 Detected Issues ({len(rows_with_issues)})")
+            
+            for item in rows_with_issues:
+                idx = item['index']
+                issues = item['issues']
+                
+                with st.container(border=True):
+                    cols = st.columns([0.5, 2, 2.5, 1.5])
                     
-                    with st.container(border=True):
-                        # Layout: Info | Issue | Fix | Actions
-                        cols = st.columns([0.5, 2, 2, 1.5])
-                        
-                        # Col 1: Row Num
-                        cols[0].caption(f"Row {idx+2}")
-                        
-                        # Col 2: The Problem
-                        with cols[1]:
-                            for issue in issues:
-                                st.markdown(f"**{issue['col']}**")
-                                st.code(issue['original'], language=None)
-                                st.caption(f"⚠️ {issue['reason']}")
-                        
-                        # Col 3: The Proposal
-                        with cols[2]:
-                            for issue in issues:
-                                st.markdown("**Proposed Change**")
-                                st.code(issue['proposed'], language=None)
-                        
-                        # Col 4: ACTIONS (Fix, Ignore, Exclude)
-                        with cols[3]:
-                            st.write("") # Vertical spacer
+                    # Col 1: Row Num
+                    cols[0].caption(f"Row {idx+2}")
+                    
+                    # Col 2: The Problem
+                    with cols[1]:
+                        for issue in issues:
+                            st.markdown(f"**{issue['col']}**")
+                            st.code(issue['original'], language=None)
+                            st.caption(f"⚠️ {issue['reason']}")
+                    
+                    # Col 3: The Fix (EDITABLE)
+                    with cols[2]:
+                        for i_issue, issue in enumerate(issues):
+                            st.markdown("**Proposed Fix (Edit to Change)**")
                             
-                            # ACTION 1: FIX
-                            if st.button("✅ Fix", key=f"fix_{filename}_{idx}", type="primary", use_container_width=True):
-                                for issue in issues:
-                                    st.session_state.file_cache[filename]['df'].at[idx, issue['col']] = issue['proposed']
-                                    if issue['col'] in ['Headline', 'Title', 'Headline']:
-                                        save_memory({issue['original']: issue['proposed']})
-                                st.rerun()
+                            edit_key = f"edit_{filename}_{idx}_{issue['col']}"
+                            default_val = str(issue['proposed']) if issue['proposed'] is not None else ""
+                            
+                            new_val = st.text_input(
+                                label="Edit Fix", 
+                                value=default_val, 
+                                key=edit_key, 
+                                label_visibility="collapsed"
+                            )
+                            
+                            if f"{filename}_{idx}" not in st.session_state.user_edits:
+                                st.session_state.user_edits[f"{filename}_{idx}"] = {}
+                            st.session_state.user_edits[f"{filename}_{idx}"][issue['col']] = new_val
 
-                            # ACTION 2: IGNORE (Whitelist this specific error)
-                            if st.button("🙈 Ignore", key=f"ignore_{filename}_{idx}", use_container_width=True):
-                                for issue in issues:
-                                    key = f"{filename}|{idx}|{issue['col']}"
-                                    st.session_state.ignored_issues.add(key)
-                                st.rerun()
+                            if new_val != default_val:
+                                st.caption("✏️ Manual edit detected")
 
-                            # ACTION 3: EXCLUDE (Drop Row)
-                            if st.button("🗑️ Exclude", key=f"drop_{filename}_{idx}", use_container_width=True):
-                                st.session_state.file_cache[filename]['df'].drop(idx, inplace=True)
-                                st.rerun()
-            else:
-                st.success("✨ No errors detected.")
+                    # Col 4: ACTIONS
+                    with cols[3]:
+                        st.write("") 
+                        
+                        # FIX / RECHECK
+                        if st.button("✅ Fix / Recheck", key=f"fix_{filename}_{idx}", type="primary", use_container_width=True):
+                            updates = st.session_state.user_edits.get(f"{filename}_{idx}", {})
+                            
+                            for issue in issues:
+                                final_val = updates.get(issue['col'], issue['proposed'])
+                                st.session_state.file_cache[filename]['df'].at[idx, issue['col']] = final_val
+                                
+                                if str(final_val) != str(issue['proposed']) and issue['col'] in ['Headline', 'Title', 'Headline']:
+                                    save_memory({issue['original']: final_val})
+                                    st.toast("🧠 Brain trained with your manual fix!")
+                            st.rerun()
 
-        with tab2:
+                        # IGNORE
+                        if st.button("🙈 Ignore", key=f"ignore_{filename}_{idx}", use_container_width=True):
+                            for issue in issues:
+                                key = f"{filename}|{idx}|{issue['col']}"
+                                st.session_state.ignored_issues.add(key)
+                            st.rerun()
+
+                        # EXCLUDE
+                        if st.button("🗑️ Exclude Row", key=f"drop_{filename}_{idx}", use_container_width=True):
+                            st.session_state.file_cache[filename]['df'].drop(idx, inplace=True)
+                            st.rerun()
+        else:
+            st.success("✨ No errors detected.")
+
+        # --- VALID ROWS SECTION (Expandable Bar) ---
+        st.write("")
+        with st.expander(f"✅ Valid Data ({len(clean_rows_indices)}) - Click to View", expanded=False):
             if clean_rows_indices:
-                # Dynamic Config based on Platform
                 config = {
                     "Final URL": st.column_config.TextColumn("Final URL", width="medium"),
                     "Destination URL": st.column_config.TextColumn("Destination URL", width="medium"),
@@ -422,7 +511,7 @@ if st.session_state.file_cache:
                     key=f"data_{filename}"
                 )
             else:
-                st.caption("No valid rows yet. Fix or Ignore items in the Review tab.")
+                st.caption("No valid rows yet.")
 
         # EXPORT
         if not rows_with_issues:
@@ -442,4 +531,5 @@ if st.session_state.file_cache:
     if st.button("Clear All Files"):
         st.session_state.file_cache = {}
         st.session_state.ignored_issues = set()
+        st.session_state.user_edits = {}
         st.rerun()
