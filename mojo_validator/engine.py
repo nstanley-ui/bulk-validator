@@ -47,15 +47,25 @@ class ValidatorEngine:
     def _detect_platform(self, df: pd.DataFrame) -> str:
         """Heuristic to detect platform based on headers."""
         headers = set(df.columns)
-        # Simple detection logic - can be expanded
+        # Google Detection
+        if "Your YouTube video" in headers:
+            return "Google Video Ads"
         if "Campaign" in headers and "Ad Group" in headers:
             return "Google Ads"
-        if "Campaign Name" in headers and "Ad Set Name" in headers:
+        
+        # Meta Detection
+        if "Video URL" in headers or "Video ID" in headers:
+            return "Meta Video Ads"
+        if "Campaign Name" in headers and "Ad Set Name" in headers and "Ad Name" in headers:
             return "Meta Ads"
+        
+        # LinkedIn Detection
+        if "Landing Page URL" in headers and "Introduction" in headers:
+            return "LinkedIn Video Ads"
         if "Campaign Name" in headers and "Headline" in headers and "Introduction" in headers:
             return "LinkedIn Ads"
         
-        return "Generic" # Fallback
+        return "Generic"
 
     def _validate_row(self, idx: int, row: pd.Series, config: Dict[str, Any]) -> List[Issue]:
         row_issues = []
@@ -108,6 +118,19 @@ class ValidatorEngine:
                         message=f"Value exceeds max length of {validator['max_length']}",
                         original_value=val,
                         suggested_fix="Truncate"
+                    ))
+            
+            # Regex check
+            if 'regex' in validator and isinstance(val, str):
+                import re
+                if not re.match(validator['regex'], val):
+                    row_issues.append(Issue(
+                        issue_id=f"{idx}_{col}_regex",
+                        row_idx=idx,
+                        column=col,
+                        severity="WARNING",
+                        message=validator.get('message', f"Value does not match required format"),
+                        original_value=val
                     ))
 
         return row_issues

@@ -1,0 +1,23 @@
+platform: LinkedIn Video Ads
+version: "1.0"
+validators:
+  - column: "Campaign Name"
+    required: true
+  - column: "Status"
+    required: true
+    values: ["ACTIVE", "PAUSED", "ARCHIVED"]
+  - column: "Headline"
+    required: true
+    max_length: 70
+  - column: "Introduction"
+    required: true
+    max_length: 600
+  - column: "Landing Page URL"
+    required: true
+    regex: "^https?://.+"
+fixes:
+  - target_column: "Status"
+    rule: "lowercase_to_uppercase"
+  - target_column: "Headline"
+    rule: "truncate"
+    max_length: 70

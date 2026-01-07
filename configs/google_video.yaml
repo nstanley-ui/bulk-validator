@@ -1,0 +1,27 @@
+platform: Google Video Ads
+version: "1.0"
+validators:
+  - column: "Campaign"
+    required: true
+  - column: "Ad Group"
+    required: true
+  - column: "Your YouTube video"
+    required: true
+    regex: "^(https?://)?(www\\.)?(youtube\\.com|youtu\\.be)/.+"
+    message: "Must be a valid YouTube URL"
+  - column: "Headline"
+    required: true
+    max_length: 15
+  - column: "Description"
+    required: true
+    max_length: 90
+  - column: "Final URL"
+    required: true
+    regex: "^https?://.+"
+fixes:
+  - target_column: "Headline"
+    rule: "truncate"
+    max_length: 15
+  - target_column: "Description"
+    rule: "truncate"
+    max_length: 90
