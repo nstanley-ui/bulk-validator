@@ -13,31 +13,25 @@ st.set_page_config(page_title="Mojo Validator // Enterprise", page_icon="🛡️
 # CUSTOM CSS: CLEAN, MODERN, TRUSTWORTHY
 st.markdown("""
 <style>
-    /* IMPORT FONT - INTER (Standard for high-trust UI) */
+    /* IMPORT FONT - INTER */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
     /* BASE STYLES */
     .stApp {
-        background-color: #F3F4F6; /* Light gray, professional background */
+        background-color: #F3F4F6;
         font-family: 'Inter', sans-serif;
         color: #111827;
     }
 
     /* TYPOGRAPHY */
-    h1, h2, h3 {
-        color: #111827;
-        font-weight: 700;
-        letter-spacing: -0.025em;
-    }
-    p, div, span {
-        color: #374151;
-    }
+    h1, h2, h3 { color: #111827; font-weight: 700; letter-spacing: -0.025em; }
+    p, div, span { color: #374151; }
 
-    /* CARDS - SOLID & CLEAN */
+    /* CARDS */
     div[data-testid="stBorder"], div.css-1r6slb0, .css-1r6slb0 {
         background: #FFFFFF;
-        border: 1px solid #E5E7EB; /* Subtle border */
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); /* Soft shadow */
+        border: 1px solid #E5E7EB;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
         border-radius: 8px;
         padding: 24px;
     }
@@ -50,52 +44,38 @@ st.markdown("""
         border-radius: 8px;
         padding: 16px;
     }
-    label[data-testid="stMetricLabel"] {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #6B7280;
-    }
 
     /* BADGES */
     .platform-badge {
         font-size: 0.75rem;
         padding: 4px 10px;
-        border-radius: 9999px; /* Pill shape */
+        border-radius: 9999px;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         display: inline-block;
     }
 
-    /* BUTTONS - PRIMARY (Blue/Trust) */
+    /* BUTTONS */
     button[kind="primary"] {
-        background-color: #2563EB; /* Royal Blue */
+        background-color: #2563EB;
         border: 1px solid #2563EB;
         color: white;
         font-weight: 600;
         border-radius: 6px;
         padding: 0.5rem 1rem;
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        transition: background-color 0.15s ease-in-out;
     }
     button[kind="primary"]:hover {
-        background-color: #1D4ED8; /* Darker Blue */
+        background-color: #1D4ED8;
         border-color: #1D4ED8;
     }
-
-    /* BUTTONS - SECONDARY (White/Clean) */
     button[kind="secondary"] {
         background-color: #FFFFFF;
         border: 1px solid #D1D5DB;
         color: #374151;
         font-weight: 500;
         border-radius: 6px;
-        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-    }
-    button[kind="secondary"]:hover {
-        background-color: #F9FAFB;
-        border-color: #9CA3AF;
-        color: #111827;
     }
 
     /* SIDEBAR */
@@ -166,6 +146,44 @@ def analyze_row(row, index, platform, memory, filename, ignored_set, link_check)
     issues = []
     def is_ignored(col): return f"{filename}|{index}|{col}" in ignored_set
 
+    # 1. SPECIAL CHECK: AD GROUP ID (Google Only)
+    if platform == "Google Ads":
+        if 'Ad Group ID' in row:
+            val = row['Ad Group ID']
+            if (pd.isna(val) or val == '') and not is_ignored('Ad Group ID'):
+                issues.append({
+                    'col': 'Ad Group ID', 
+                    'orig': '(Empty)', 
+                    'prop': '(Leave Empty for New)', 
+                    'reason': '⚠️ Reminder: Fill this ID if updating existing ads. Leave blank for new ads.'
+                })
+        else:
+            if not is_ignored('Ad Group ID'):
+                issues.append({
+                    'col': 'Ad Group ID',
+                    'orig': '(Missing Column)',
+                    'prop': '',
+                    'reason': '❌ Column Missing: Ad Group ID is required for Google.'
+                })
+    
+    # 2. SPECIAL CHECK: CAMPAIGN GROUP (LinkedIn Only)
+    if platform == "LinkedIn Ads":
+        if 'Campaign Group' not in row and not is_ignored('Campaign Group'):
+             issues.append({
+                'col': 'Campaign Group',
+                'orig': '(Missing Column)',
+                'prop': 'Default Campaign Group',
+                'reason': '❌ LinkedIn requires a Campaign Group column.'
+            })
+        if 'Ad Status' not in row and not is_ignored('Ad Status'):
+             issues.append({
+                'col': 'Ad Status',
+                'orig': '(Missing Column)',
+                'prop': 'ACTIVE',
+                'reason': '❌ LinkedIn requires Ad Status (ACTIVE/PAUSED).'
+            })
+
+    # 3. URL CHECK
     url_col = next((c for c in ['Final URL', 'Destination URL', 'Link URL'] if c in row), None)
     if url_col and pd.notna(row[url_col]) and not is_ignored(url_col):
         url = str(row[url_col])
@@ -175,6 +193,7 @@ def analyze_row(row, index, platform, memory, filename, ignored_set, link_check)
             fix, reason = check_link_health(url)
             if reason: issues.append({'col': url_col, 'orig': url, 'prop': fix if fix else url, 'reason': reason})
 
+    # 4. TEXT POLICY CHECKS
     for col in ['Headline', 'Title', 'Ad Headline', 'Body', 'Description']:
         if col in row and pd.notna(row[col]) and not is_ignored(col):
             text = str(row[col])
@@ -196,9 +215,25 @@ def to_csv(df):
 def generate_demo(platform):
     data = []
     if platform == 'google':
-        data = [{'Headline': 'Bitcoin Invest', 'Final URL': 'https://httpstat.us/404', 'Max CPC': 1.50}] * 5 + [{'Headline': 'Good Ad', 'Final URL': 'https://google.com'}] * 45
+        data = [{'Ad Group ID': '', 'Headline': 'Bitcoin Invest', 'Final URL': 'https://httpstat.us/404', 'Max CPC': 1.50}] * 5 + \
+               [{'Ad Group ID': '123456789', 'Headline': 'Good Ad', 'Final URL': 'https://google.com', 'Max CPC': None}] * 45
     elif platform == 'linkedin':
-        data = [{'Headline': 'Shocking Trick', 'Destination URL': 'https://httpstat.us/500'}] * 5 + [{'Headline': 'Pro Update', 'Destination URL': 'https://linkedin.com'}] * 45
+        # UPDATED LINKEDIN STRUCTURE
+        common = {
+            'Campaign Group': 'Default Campaign Group',
+            'Campaign Name': 'Q1_Prospecting_2024',
+            'Ad Status': 'ACTIVE',
+            'Ad Format': 'SINGLE_IMAGE'
+        }
+        for i in range(5):
+             row = common.copy()
+             row.update({'Headline': 'Shocking Trick', 'Introductory Text': 'Intro text here', 'Destination URL': 'https://httpstat.us/500', 'Call to Action': 'LEARN_MORE'})
+             data.append(row)
+        for i in range(45):
+             row = common.copy()
+             row.update({'Headline': f'Pro Update {i}', 'Introductory Text': 'Intro text here', 'Destination URL': 'https://linkedin.com', 'Call to Action': 'LEARN_MORE'})
+             data.append(row)
+             
     elif platform == 'meta':
         data = [{'Title': 'Are you fat?', 'Link URL': 'https://httpstat.us/404'}] * 5 + [{'Title': 'New Look', 'Link URL': 'https://meta.com'}] * 45
     return to_excel(pd.DataFrame(data))
@@ -212,14 +247,14 @@ if 'edits' not in st.session_state: st.session_state.edits = {}
 # --- SIDEBAR ---
 with st.sidebar:
     st.markdown("### 🛡️ Mojo Validator")
-    st.caption("Enterprise Edition v2.2")
+    st.caption("Enterprise Edition v2.4 (LinkedIn Fix)")
     st.markdown("---")
     
     st.subheader("Configuration")
     check_links = st.toggle("Active Link Monitoring", value=True, help="Pings destination URLs to check for 404s.")
     
     st.markdown("---")
-    st.markdown("#### Test Data Generation")
+    st.markdown("#### Test Data Generator")
     st.caption("Generate sample files to test validation logic.")
     c1, c2, c3 = st.columns(3)
     c1.download_button("G-Ads", generate_demo('google'), "demo_google.xlsx")
@@ -334,7 +369,13 @@ if st.session_state.file_cache:
                                 updates = st.session_state.edits.get(f"{fname}_{idx}", {})
                                 for i in issues:
                                     val = updates.get(i['col'], i['prop'])
-                                    st.session_state.file_cache[fname]['df'].at[idx, i['col']] = val
+                                    
+                                    # Handle "Missing Column" case
+                                    if 'Missing Column' in i['reason']:
+                                        st.session_state.file_cache[fname]['df'][i['col']] = i['prop'] # Create col globally
+                                    else:
+                                        st.session_state.file_cache[fname]['df'].at[idx, i['col']] = val
+                                    
                                     if str(val) != str(i['prop']): save_memory({i['orig']: val})
                                 st.rerun()
                                 
