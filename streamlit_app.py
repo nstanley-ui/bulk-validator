@@ -125,7 +125,9 @@ def find_or_create_ad_group(client, customer_id, campaign_id, ad_group_name, ad_
             # Fallback
             ad_group.type_ = client.enums.AdGroupTypeEnum.DISPLAY_STANDARD
 
-        # NOTE: cpc_bid_micros REMOVED to prevent "Operation not allowed" error
+        # --- IMPORTANT FIX ---
+        # The line 'ad_group.cpc_bid_micros = 1000000' has been REMOVED.
+        # This allows the Ad Group to inherit the Campaign's strategy (e.g. Target CPA).
         
         response = ad_group_service.mutate_ad_groups(
             customer_id=customer_id,
@@ -271,7 +273,7 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("📋 Campaign Details")
-    # Updated default ID to your correct account
+    # Updated default ID to your correct account (from screenshot)
     customer_id = st.text_input("Customer ID", value="4368944560", help="Your Google Ads Customer ID (no hyphens)")
     campaign_id = st.text_input("Campaign ID", value="23438621203", help="Campaign where ads will be created")
     ad_group_name = st.text_input("Ad Group Name", value="Creative_Validator_Bin", help="Ad group for validation")
