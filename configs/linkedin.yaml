@@ -1,27 +1,113 @@
 platform: LinkedIn Ads
-version: "1.0"
+version: "2.0"
+description: "Updated with complete LinkedIn Sponsored Content requirements (Jan 2026)"
+
 validators:
+  # Campaign Info
   - column: "Campaign Name"
     required: true
     type: string
     max_length: 255
+    message: "Campaign name is required and must be 255 characters or less"
+
   - column: "Status"
     required: true
     values: ["ACTIVE", "PAUSED", "ARCHIVED"]
+    message: "Status must be one of: ACTIVE, PAUSED, ARCHIVED"
+
+  # Ad Creative - Text Fields
   - column: "Headline"
     required: true
-    max_length: 70
+    type: string
+    max_length: 200
+    recommended_max: 70
+    message: "Headline is required. Max 200 characters, but 70 or less recommended to avoid truncation on mobile"
+
+  - column: "Description"
+    required: false
+    type: string
+    max_length: 300
+    recommended_max: 100
+    message: "Description max 300 characters (100 recommended to avoid truncation)"
+
   - column: "Introduction"
     required: false
+    type: string
     max_length: 600
+    recommended_max: 150
+    message: "Introduction text max 600 characters (150 recommended to avoid truncation on mobile)"
+
+  # URLs
+  - column: "Landing Page URL"
+    required: true
+    type: url
+    max_length: 2000
+    regex: "^https?://.+"
+    message: "Landing Page URL is required and must start with http:// or https://"
+
+  - column: "Display URL"
+    required: false
+    type: string
+    max_length: 200
+    message: "Display URL max 200 characters"
+
+  # Budget & Bidding
   - column: "Daily Budget"
     required: false
     type: number
     min: 10
+    message: "Daily budget must be at least $10"
+
+  - column: "Total Budget"
+    required: false
+    type: number
+    min: 10
+    message: "Total budget must be at least $10"
+
+  # Image Requirements (if present)
+  - column: "Image URL"
+    required: false
+    type: url
+    regex: "^https?://.+"
+    message: "Image URL must start with http:// or https://"
+
+# Auto-fix rules
 fixes:
   - target_column: "Status"
-    rule: "lowercase_to_uppercase"
-    trigger: "any_lowercase"
+    rule: "map_values"
+    mapping:
+      "active": "ACTIVE"
+      "paused": "PAUSED"
+      "pause": "PAUSED"
+      "archived": "ARCHIVED"
+      "archive": "ARCHIVED"
+    auto_apply: false
+
   - target_column: "Headline"
     rule: "truncate"
     max_length: 70
+    auto_apply: false
+    warning: "Headline will be truncated on mobile. Consider rewriting."
+
+  - target_column: "Introduction"
+    rule: "truncate"
+    max_length: 150
+    auto_apply: false
+    warning: "Introduction will be truncated on mobile. Consider rewriting."
+
+# Additional validation rules
+validation_rules:
+  - rule: "check_url_protocol"
+    columns: ["Landing Page URL", "Image URL"]
+    message: "URLs must include http:// or https://"
+
+  - rule: "check_capitalization"
+    columns: ["Headline", "Introduction", "Description"]
+    max_uppercase_ratio: 0.5
+    message: "Excessive capitalization may trigger spam filters"
+
+notes:
+  - "LinkedIn URL shortener converts URLs over 23 characters"
+  - "Headline shows 2 lines before truncation"
+  - "Image: JPG/PNG/GIF, max 5MB, recommended 1200x628px"
+  - "Video: MP4/MOV, max 200MB, recommended 1920x1080px"
