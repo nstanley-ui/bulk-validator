@@ -202,7 +202,7 @@ if 'edits' not in st.session_state: st.session_state.edits = {}
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/2103/2103633.png", width=50) # Generic DNA icon
     st.title("Mojo Console")
-    st.caption("v2.0 Executive Build")
+    st.caption("v2.1 Executive Build")
     st.markdown("---")
     
     st.subheader("⚙️ Settings")
@@ -358,9 +358,9 @@ if st.session_state.file_cache:
 
             with col_clean:
                 if not rows_issues:
-                    st.download_button(f"✨ Download Clean File", data, f"CLEAN_{fname.split('.')[0]}.{ext}", mime=mime, type="primary", use_container_width=True)
+                    st.download_button(f"✨ Download Clean File", data, f"CLEAN_{fname.split('.')[0]}.{ext}", mime=mime, type="primary", use_container_width=True, key=f"dl_clean_{fname}")
                 else:
-                    st.button("🚫 Fix Remaining Errors to Download Clean", disabled=True, use_container_width=True)
+                    st.button("🚫 Fix Remaining Errors to Download Clean", disabled=True, use_container_width=True, key=f"dl_disabled_{fname}")
             
             with col_wip:
-                st.download_button(f"⚠️ Download Work-in-Progress", data, f"WIP_{fname.split('.')[0]}.{ext}", mime=mime, use_container_width=True)
+                st.download_button(f"⚠️ Download Work-in-Progress", data, f"WIP_{fname.split('.')[0]}.{ext}", mime=mime, use_container_width=True, key=f"dl_wip_{fname}")
