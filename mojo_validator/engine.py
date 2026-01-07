@@ -61,50 +61,86 @@ class ValidatorEngine:
         """
         Enhanced heuristic to detect platform based on headers.
         Uses weighted scoring for better accuracy.
+        Now supports multiple ad types per platform.
         """
         headers = set(df.columns)
         
-        # Scoring system
+        # Scoring system - now includes specific ad types
         scores = {
             "Google Ads": 0,
+            "Google Display Ads": 0,
+            "Google Video Ads": 0,
             "Meta Ads": 0,
+            "Meta Video Ads": 0,
+            "Meta Stories & Reels Ads": 0,
             "LinkedIn Ads": 0,
+            "LinkedIn Video Ads": 0,
             "Generic": 0
         }
         
-        # Google Ads indicators (weight by uniqueness)
+        # Google Ads - Search (RSA)
         if "Ad Group" in headers:
-            scores["Google Ads"] += 10  # Very unique to Google
+            scores["Google Ads"] += 10
         if "Campaign" in headers and "Ad Group" in headers:
             scores["Google Ads"] += 5
-        if "Final URL" in headers:
-            scores["Google Ads"] += 3
         if "Headline 1" in headers or "Headline 2" in headers:
             scores["Google Ads"] += 5
         if "Description 1" in headers:
             scores["Google Ads"] += 5
-        if "Your YouTube video" in headers:
-            scores["Google Ads"] += 10
-            
-        # Meta Ads indicators
+        if "Final URL" in headers:
+            scores["Google Ads"] += 3
+        
+        # Google Display Ads
+        if "Short Headline" in headers or "Long Headline" in headers:
+            scores["Google Display Ads"] += 15
+        if "Business Name" in headers and "Marketing Image" in headers:
+            scores["Google Display Ads"] += 10
+        if "Square Marketing Image" in headers:
+            scores["Google Display Ads"] += 8
+        
+        # Google Video Ads
+        if "YouTube Video" in headers or "Your YouTube video" in headers:
+            scores["Google Video Ads"] += 15
+        if "Ad Format" in headers and "Campaign" in headers:
+            scores["Google Video Ads"] += 8
+        if "Companion Banner" in headers:
+            scores["Google Video Ads"] += 5
+        
+        # Meta Ads - Feed
         if "Ad Set Name" in headers:
-            scores["Meta Ads"] += 10  # Very unique to Meta
+            scores["Meta Ads"] += 10
         if "Campaign Name" in headers and "Ad Set Name" in headers and "Ad Name" in headers:
             scores["Meta Ads"] += 5
         if "Primary Text" in headers:
             scores["Meta Ads"] += 5
-        if "Video URL" in headers or "Video ID" in headers:
-            scores["Meta Ads"] += 3
         if "Website URL" in headers:
             scores["Meta Ads"] += 3
-            
-        # LinkedIn Ads indicators
+        
+        # Meta Video Ads
+        if "Video URL" in headers and "Ad Set Name" in headers:
+            scores["Meta Video Ads"] += 15
+        if "Thumbnail URL" in headers and "Video URL" in headers:
+            scores["Meta Video Ads"] += 8
+        
+        # Meta Stories & Reels
+        if "Placement" in headers and "Media URL" in headers:
+            scores["Meta Stories & Reels Ads"] += 15
+        if "Media Type" in headers and "Ad Set Name" in headers:
+            scores["Meta Stories & Reels Ads"] += 8
+        
+        # LinkedIn Ads - Sponsored Content
         if "Landing Page URL" in headers:
-            scores["LinkedIn Ads"] += 10  # Very unique to LinkedIn
+            scores["LinkedIn Ads"] += 10
         if "Introduction" in headers and "Campaign Name" in headers:
             scores["LinkedIn Ads"] += 5
         if "Headline" in headers and "Introduction" in headers:
             scores["LinkedIn Ads"] += 5
+        
+        # LinkedIn Video Ads
+        if "Video URL" in headers and "Landing Page URL" in headers and "Intro Text" in headers:
+            scores["LinkedIn Video Ads"] += 15
+        if "Intro Text" in headers and "Video URL" in headers:
+            scores["LinkedIn Video Ads"] += 10
         
         # Determine winner
         winner = max(scores, key=scores.get)
