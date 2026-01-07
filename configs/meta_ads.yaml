@@ -1,27 +1,153 @@
 platform: Meta Ads
-version: "1.0"
+version: "2.0"
+description: "Updated with Facebook/Instagram Feed Ads requirements (Jan 2026)"
+
 validators:
+  # Campaign Structure
   - column: "Campaign Name"
     required: true
     type: string
+    max_length: 255
+    message: "Campaign name is required"
+
   - column: "Ad Set Name"
     required: true
     type: string
+    max_length: 255
+    message: "Ad set name is required"
+
   - column: "Ad Name"
     required: true
     type: string
+    max_length: 255
+    message: "Ad name is required"
+
+  # Status
   - column: "Campaign Status"
     required: true
     values: ["ACTIVE", "PAUSED", "ARCHIVED"]
-  - column: "Body"
+    message: "Campaign status must be one of: ACTIVE, PAUSED, ARCHIVED"
+
+  # Primary Text (Body)
+  - column: "Primary Text"
     required: true
     type: string
     max_length: 125
-  - column: "Title"
+    recommended_max: 125
+    message: "Primary text is required. First 125 characters show in preview, rest behind 'See More'"
+
+  # Headline - CORRECTED LIMIT
+  - column: "Headline"
+    required: true
+    type: string
+    max_length: 27
+    warning_at: 27
+    absolute_max: 40
+    message: "Headline max 27 characters for most placements (40 for some). Text over 27 will be truncated on Feed/Stories"
+
+  # Link Description
+  - column: "Link Description"
     required: false
     type: string
-    max_length: 40
+    max_length: 30
+    message: "Link description max 30 characters (25 for some placements)"
+
+  # Description (alternative name for Primary Text)
+  - column: "Description"
+    required: false
+    type: string
+    max_length: 125
+    message: "Description (primary text) max 125 characters visible in preview"
+
+  # URLs
+  - column: "Website URL"
+    required: true
+    type: url
+    regex: "^https?://.+"
+    message: "Website URL is required and must start with http:// or https://"
+
+  - column: "Display Link"
+    required: false
+    type: string
+    max_length: 200
+    message: "Display link max 200 characters"
+
+  # Call to Action
+  - column: "Call to Action"
+    required: false
+    values: ["LEARN_MORE", "SHOP_NOW", "SIGN_UP", "DOWNLOAD", "BOOK_NOW", "CONTACT_US", "GET_QUOTE", "APPLY_NOW", "NO_BUTTON"]
+    message: "CTA must be from the approved list"
+
+  # Image/Video (if present)
+  - column: "Image URL"
+    required: false
+    type: url
+    regex: "^https?://.+"
+    message: "Image URL must start with http:// or https://"
+
+  - column: "Video URL"
+    required: false
+    type: url
+    regex: "^https?://.+"
+    message: "Video URL must start with http:// or https://"
+
+# Auto-fix rules
 fixes:
-  - target_column: "Body"
+  - target_column: "Campaign Status"
+    rule: "map_values"
+    mapping:
+      "active": "ACTIVE"
+      "paused": "PAUSED"
+      "pause": "PAUSED"
+      "archived": "ARCHIVED"
+      "archive": "ARCHIVED"
+    auto_apply: false
+
+  - target_column: "Headline"
+    rule: "truncate"
+    max_length: 27
+    auto_apply: false
+    warning: "CRITICAL: Headline will be truncated on Facebook Feed, Instagram Feed, and Stories. 27 character limit is HARD for these placements."
+
+  - target_column: "Primary Text"
     rule: "truncate"
     max_length: 125
+    auto_apply: false
+    warning: "Text over 125 characters will be hidden behind 'See More' button"
+
+  - target_column: "Link Description"
+    rule: "truncate"
+    max_length: 30
+    auto_apply: false
+    warning: "Link description over 30 characters may be truncated"
+
+# Additional validation rules
+validation_rules:
+  - rule: "check_url_protocol"
+    columns: ["Website URL", "Image URL", "Video URL"]
+    message: "URLs must include http:// or https://"
+
+  - rule: "check_capitalization"
+    columns: ["Headline", "Primary Text", "Description"]
+    max_uppercase_ratio: 0.5
+    message: "Excessive capitalization may trigger ad rejection"
+
+  - rule: "check_placement_compatibility"
+    columns: ["Headline"]
+    max_length_by_placement:
+      facebook_feed: 27
+      instagram_feed: 27
+      instagram_stories: 27
+      messenger: 40
+      audience_network: 40
+    message: "Different placements have different character limits"
+
+notes:
+  - "CRITICAL: Headline limit is 27 characters for Facebook/Instagram Feed and Stories"
+  - "Headline limit is 40 characters for Messenger and Audience Network"
+  - "Primary Text: First 125 characters show, rest requires 'See More' click"
+  - "Image: Min 1080x1080px, JPG or PNG, max 30MB"
+  - "Video: MP4 or MOV, recommended 1080x1080 or 1920x1080"
+  - "Carousel: Each card has own headline (max 27 chars) and description"
+  - "Text in images: No longer has 20% rule but minimal text performs better"
+  - "Emojis: Allowed but use sparingly"
