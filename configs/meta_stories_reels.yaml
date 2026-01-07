@@ -1,0 +1,117 @@
+platform: Meta Stories & Reels Ads
+version: "2.0"
+description: "Facebook Stories, Instagram Stories, and Instagram Reels Ads (Jan 2026)"
+
+validators:
+  # Campaign Structure
+  - column: "Campaign Name"
+    required: true
+    type: string
+    max_length: 255
+    message: "Campaign name is required"
+
+  - column: "Ad Set Name"
+    required: true
+    type: string
+    max_length: 255
+    message: "Ad set name is required"
+
+  - column: "Ad Name"
+    required: true
+    type: string
+    max_length: 255
+    message: "Ad name is required"
+
+  # Status
+  - column: "Campaign Status"
+    required: true
+    values: ["ACTIVE", "PAUSED", "ARCHIVED"]
+    message: "Campaign status must be one of: ACTIVE, PAUSED, ARCHIVED"
+
+  # Placement
+  - column: "Placement"
+    required: false
+    values: ["Facebook Stories", "Instagram Stories", "Instagram Reels", "Messenger Stories", "Auto"]
+    message: "Placement must be from approved list"
+
+  # Media (Image or Video)
+  - column: "Media URL"
+    required: true
+    type: url
+    regex: "^https?://.+"
+    message: "Media URL is required (image or video) and must start with http:// or https://"
+
+  - column: "Media Type"
+    required: false
+    values: ["IMAGE", "VIDEO"]
+    message: "Media type must be IMAGE or VIDEO"
+
+  # Headline (Stories/Reels have very short text limits)
+  - column: "Headline"
+    required: false
+    type: string
+    max_length: 25
+    message: "Headline max 25 characters for Stories/Reels (appears below CTA)"
+
+  # Primary Text (limited display in Stories)
+  - column: "Primary Text"
+    required: false
+    type: string
+    max_length: 125
+    message: "Primary Text max 125 characters (may not fully display in Stories)"
+
+  # URLs
+  - column: "Website URL"
+    required: true
+    type: url
+    regex: "^https?://.+"
+    message: "Website URL is required and must start with http:// or https://"
+
+  # Call to Action
+  - column: "Call to Action"
+    required: false
+    values: ["LEARN_MORE", "SHOP_NOW", "SIGN_UP", "DOWNLOAD", "BOOK_NOW", "CONTACT_US", "APPLY_NOW", "WATCH_MORE", "PLAY_GAME", "LISTEN_NOW", "INSTALL_APP", "NO_BUTTON"]
+    message: "CTA must be from the approved list"
+
+# Auto-fix rules
+fixes:
+  - target_column: "Campaign Status"
+    rule: "map_values"
+    mapping:
+      "active": "ACTIVE"
+      "paused": "PAUSED"
+      "pause": "PAUSED"
+      "archived": "ARCHIVED"
+      "archive": "ARCHIVED"
+    auto_apply: false
+
+  - target_column: "Headline"
+    rule: "truncate"
+    max_length: 25
+    auto_apply: false
+    warning: "Headlines over 25 characters will be truncated in Stories/Reels"
+
+# Additional validation rules
+validation_rules:
+  - rule: "check_url_protocol"
+    columns: ["Media URL", "Website URL"]
+    message: "URLs must include http:// or https://"
+
+  - rule: "check_capitalization"
+    columns: ["Headline", "Primary Text"]
+    max_uppercase_ratio: 0.5
+    message: "Excessive capitalization may trigger ad rejection"
+
+notes:
+  - "CRITICAL: Stories/Reels are VERTICAL format - 9:16 aspect ratio required"
+  - "Image: Min 1080x1920, recommended 1080x1920 (9:16), JPG or PNG"
+  - "Video: 1080x1920 (9:16), MP4 or MOV, max 4GB"
+  - "Video length: 1-120 seconds (Stories), 1-90 seconds (Reels)"
+  - "Optimal video length: 6-15 seconds for best performance"
+  - "Safe zone: Keep important content in center 1080x1350 (4:5) area"
+  - "Text overlay: Avoid placing text near top/bottom (obscured by UI)"
+  - "CTA button: Appears at bottom of screen"
+  - "Sound: 70% of Stories watched with sound OFF - use captions"
+  - "Headline appears below CTA button (limited space)"
+  - "Full-screen immersive format"
+  - "Auto-advance after 15 seconds (Stories) or completion (Reels)"
