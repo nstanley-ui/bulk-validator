@@ -626,33 +626,41 @@ with st.sidebar:
     
     st.markdown("---")
     st.subheader("📥 Demo Files")
-    st.caption("Test files with realistic policy violations")
+    st.caption("Download test files with realistic errors (50 rows each, ~10% with issues)")
     
-    # Google Ads Demo
+    # Google Ads Demo (shortened for embedding)
     google_demo = """Campaign,Ad Group,Headline,Description,Final URL,Path 1,Path 2
-Summer Sale 2025,,BEST DEALS EVER!!!,Shop our AMAZING summer collection now. Click here for guaranteed savings!!!,example.com/summer,deals,shop
-Summer Sale 2025,Shoes,Buy Bitcoin Trading Bot,Invest in cryptocurrency and get rich quick with our automated bot,https://crypto-scam.com,crypto,trading
-Tech Products,Laptops,Professional Laptops for Work,High-performance laptops for business professionals. Free shipping.,https://techstore.com/laptops,laptops,business"""
+Summer Sale 2025,Shoes,Quality Running Shoes,Premium running shoes for athletes. Free shipping on all orders.,https://sportsgear.com/running-shoes,shoes,running
+Back to School,Supplies,School Supply Essentials,Quality notebooks pencils and backpacks for students.,https://school-supplies.com/essentials,school,supplies
+Tech Products,Laptops,Professional Business Laptops,High-performance laptops for professionals. Free tech support.,https://techstore.com/laptops,business,laptops
+Summer Sale 2025,,BEST DEALS EVER!!!,Shop our AMAZING summer collection now. Click here for guaranteed!!!,example.com/summer,deals,shop
+Summer Sale 2025,Electronics,Buy Bitcoin Trading Bot,Invest in cryptocurrency and get rich quick with our bot,https://crypto-scam.com,crypto,trading"""
 
-    # Meta Ads Demo  
+    # Meta Ads Demo (shortened)
     meta_demo = """Title,Body,Link URL,Call to Action,Description
-Premium Fitness App,Are you fat? Do you struggle with weight loss? Our app is perfect for overweight people who want to lose weight fast.,https://fitness-app.com,Sign Up,Weight loss app
-Quality Home Services,Professional cleaning services for your home. Experienced team affordable rates and satisfaction guaranteed.,https://cleaningco.com,Learn More,Home cleaning
-Educational Platform,Learn new skills online with expert instructors. Thousands of courses in business tech and creative fields.,https://learning-platform.com,Start Learning,Online courses"""
+Quality Home Services,Professional cleaning services for your home. Experienced team affordable rates guaranteed.,https://cleaningco.com,Learn More,Home cleaning
+Online Learning Platform,Master new skills with expert-led courses. Business tech creative and more.,https://learning-hub.com,Start Learning,Online education
+Premium Fitness App,Are you fat? Do you struggle with weight loss? Perfect for overweight people.,https://fitness-scam.com,Sign Up,Weight loss app
+Adult Entertainment,XXX rated content for adults only. Premium videos and live shows. 18+ only.,https://adult-site.com,Join Now,Adult content"""
 
-    # LinkedIn Ads Demo
+    # LinkedIn Ads Demo (shortened)
     linkedin_demo = """Campaign Group,Campaign,Headline,Introductory Text,Destination URL,Ad Status
-Enterprise Software,CRM Launch,SHOCKING Secret Revealed!,You won't believe this one trick that will revolutionize your sales process! Click to see the shocking truth about CRM software.,https://crm-software.com,Active
-Professional Development,,Career Advancement Tips,Develop your leadership skills with our professional training programs designed for ambitious executives.,career-training.com,Active
-Political Campaign,Election 2025,Vote for John Smith,Support John Smith for Congress! Join our campaign and help us win this election.,https://johnsmith2025.com,Active"""
+Enterprise Software,CRM Solutions,Modern CRM Platform,Streamline your sales process with our comprehensive CRM solution for growing businesses.,https://crm-software.com,Active
+Professional Development,Career Coaching,Professional Career Coaching,Advance your career with personalized coaching from industry experts.,https://career-coach.com,Active
+Political Campaign,Election 2025,Vote for John Smith,Support John Smith for Congress! Join our campaign and help us win this election.,https://johnsmith2025.com,Active
+Enterprise Software,Collaboration Tools,SHOCKING Secret Revealed!,You won't believe this one trick that will revolutionize your sales process!,https://crm-clickbait.com,Active"""
+    
+    st.info("💡 **Tip**: Download and upload these to see the validator in action. Most rows will pass (green), some will need fixes.")
     
     c1, c2, c3 = st.columns(3)
     c1.download_button("Google", google_demo.encode(), "demo_google_ads.csv", "text/csv", 
-                       use_container_width=True, help="Caps, crypto, personal attributes")
+                       use_container_width=True, help="5 sample rows (embedded version)")
     c2.download_button("Meta", meta_demo.encode(), "demo_meta_ads.csv", "text/csv",
-                       use_container_width=True, help="Personal attributes, adult content")
+                       use_container_width=True, help="4 sample rows (embedded version)")
     c3.download_button("LinkedIn", linkedin_demo.encode(), "demo_linkedin_ads.csv", "text/csv",
-                       use_container_width=True, help="Political, sensationalism, MLM")
+                       use_container_width=True, help="4 sample rows (embedded version)")
+    
+    st.caption("**Full 50-row versions** available in repo's `/examples` folder")
     
     st.markdown("---")
     if st.button("Start New Session", use_container_width=True):
@@ -747,99 +755,96 @@ if st.session_state.file_cache:
         
         st.write("")
 
-        # TABS
-        t1, t2 = st.tabs([f"⚠️ Review Required ({len(rows_issues)})", 
-                         f"✅ Verified Data ({len(clean_indices)})"])
-        
-        with t1:
-            if rows_issues:
-                for item in rows_issues:
-                    idx = item['id']
-                    issues = item['issues']
+        # Show issues that need review
+        if rows_issues:
+            st.markdown("### ⚠️ Issues Requiring Review")
+            for item in rows_issues:
+                idx = item['id']
+                issues = item['issues']
+                
+                with st.container(border=True):
+                    c1, c2, c3, c4 = st.columns([0.5, 2.5, 2.5, 2])
+                    c1.markdown(f"**#{idx+2}**")
                     
-                    with st.container(border=True):
-                        c1, c2, c3, c4 = st.columns([0.5, 2.5, 2.5, 2])
-                        c1.markdown(f"**#{idx+2}**")
-                        
-                        with c2:
-                            st.caption("DETECTED ISSUE")
-                            for i in issues:
-                                severity_colors = {
-                                    'critical': '#DC2626',
-                                    'high': '#EA580C',
-                                    'medium': '#CA8A04',
-                                    'low': '#65A30D'
-                                }
-                                color = severity_colors.get(i.get('severity', 'medium'), '#CA8A04')
-                                
-                                st.markdown(f"**{i['col']}**")
-                                st.markdown(f"<span style='color:{color}; background:#FEF2F2; padding:2px 4px; border-radius:4px;'>{i['orig']}</span>", 
-                                           unsafe_allow_html=True)
-                                st.caption(f"{i['reason']}")
-                        
-                        with c3:
-                            st.caption("RECOMMENDED FIX (EDITABLE)")
-                            for i in issues:
-                                key = f"edit_{fname}_{idx}_{i['col']}"
-                                def_val = str(i['prop']) if i['prop'] else ""
-                                new_val = st.text_input("Edit", value=def_val, key=key, 
-                                                        label_visibility="collapsed")
-                                if f"{fname}_{idx}" not in st.session_state.edits:
-                                    st.session_state.edits[f"{fname}_{idx}"] = {}
-                                st.session_state.edits[f"{fname}_{idx}"][i['col']] = new_val
-                        
-                        with c4:
-                            st.caption("RESOLUTION")
-                            if st.button("✅ Apply Fix", key=f"fix_{fname}_{idx}", 
-                                        type="primary", use_container_width=True):
-                                updates = st.session_state.edits.get(f"{fname}_{idx}", {})
-                                for i in issues:
-                                    val = updates.get(i['col'], i['prop'])
-                                    
-                                    # Log the action
-                                    log_user_action(plat, i['col'], i['orig'], i['prop'], 
-                                                   'accept', val, i.get('type', 'unknown'), 
-                                                   i.get('severity', 'medium'))
-                                    
-                                    # Update pattern confidence
-                                    if i.get('type') == 'policy':
-                                        update_pattern_confidence(plat, i.get('type'), 
-                                                                 i['orig'], True)
-                                    
-                                    # Apply fix
-                                    if 'Missing Column' in i['reason']:
-                                        st.session_state.file_cache[fname]['df'][i['col']] = i['prop']
-                                    else:
-                                        st.session_state.file_cache[fname]['df'].at[idx, i['col']] = val
-                                
-                                st.rerun()
+                    with c2:
+                        st.caption("DETECTED ISSUE")
+                        for i in issues:
+                            severity_colors = {
+                                'critical': '#DC2626',
+                                'high': '#EA580C',
+                                'medium': '#CA8A04',
+                                'low': '#65A30D'
+                            }
+                            color = severity_colors.get(i.get('severity', 'medium'), '#CA8A04')
                             
-                            c_ign, c_del = st.columns(2)
-                            if c_ign.button("🙈 Ignore", key=f"ign_{fname}_{idx}", 
-                                           use_container_width=True):
-                                for i in issues:
-                                    st.session_state.ignored.add(f"{fname}|{idx}|{i['col']}")
-                                    log_user_action(plat, i['col'], i['orig'], i['prop'], 
-                                                   'ignore', i['orig'], i.get('type', 'unknown'),
-                                                   i.get('severity', 'medium'))
-                                st.rerun()
+                            st.markdown(f"**{i['col']}**")
+                            st.markdown(f"<span style='color:{color}; background:#FEF2F2; padding:2px 4px; border-radius:4px;'>{i['orig']}</span>", 
+                                       unsafe_allow_html=True)
+                            st.caption(f"{i['reason']}")
+                    
+                    with c3:
+                        st.caption("RECOMMENDED FIX (EDITABLE)")
+                        for i in issues:
+                            key = f"edit_{fname}_{idx}_{i['col']}"
+                            def_val = str(i['prop']) if i['prop'] else ""
+                            new_val = st.text_input("Edit", value=def_val, key=key, 
+                                                    label_visibility="collapsed")
+                            if f"{fname}_{idx}" not in st.session_state.edits:
+                                st.session_state.edits[f"{fname}_{idx}"] = {}
+                            st.session_state.edits[f"{fname}_{idx}"][i['col']] = new_val
+                    
+                    with c4:
+                        st.caption("RESOLUTION")
+                        if st.button("✅ Apply Fix", key=f"fix_{fname}_{idx}", 
+                                    type="primary", use_container_width=True):
+                            updates = st.session_state.edits.get(f"{fname}_{idx}", {})
+                            for i in issues:
+                                val = updates.get(i['col'], i['prop'])
+                                
+                                # Log the action
+                                log_user_action(plat, i['col'], i['orig'], i['prop'], 
+                                               'accept', val, i.get('type', 'unknown'), 
+                                               i.get('severity', 'medium'))
+                                
+                                # Update pattern confidence
+                                if i.get('type') == 'policy':
+                                    update_pattern_confidence(plat, i.get('type'), 
+                                                             i['orig'], True)
+                                
+                                # Apply fix
+                                if 'Missing Column' in i['reason']:
+                                    st.session_state.file_cache[fname]['df'][i['col']] = i['prop']
+                                else:
+                                    st.session_state.file_cache[fname]['df'].at[idx, i['col']] = val
                             
-                            if c_del.button("🗑️ Remove", key=f"del_{fname}_{idx}", 
-                                           use_container_width=True):
-                                st.session_state.file_cache[fname]['df'].drop(idx, inplace=True)
-                                for i in issues:
-                                    log_user_action(plat, i['col'], i['orig'], i['prop'], 
-                                                   'delete', '', i.get('type', 'unknown'),
-                                                   i.get('severity', 'medium'))
-                                st.rerun()
-            else:
-                st.success("✅ All issues resolved. File is compliant.")
-
-        with t2:
-            if clean_indices:
+                            st.rerun()
+                        
+                        c_ign, c_del = st.columns(2)
+                        if c_ign.button("🙈 Ignore", key=f"ign_{fname}_{idx}", 
+                                       use_container_width=True):
+                            for i in issues:
+                                st.session_state.ignored.add(f"{fname}|{idx}|{i['col']}")
+                                log_user_action(plat, i['col'], i['orig'], i['prop'], 
+                                               'ignore', i['orig'], i.get('type', 'unknown'),
+                                               i.get('severity', 'medium'))
+                            st.rerun()
+                        
+                        if c_del.button("🗑️ Remove", key=f"del_{fname}_{idx}", 
+                                       use_container_width=True):
+                            st.session_state.file_cache[fname]['df'].drop(idx, inplace=True)
+                            for i in issues:
+                                log_user_action(plat, i['col'], i['orig'], i['prop'], 
+                                               'delete', '', i.get('type', 'unknown'),
+                                               i.get('severity', 'medium'))
+                            st.rerun()
+        else:
+            st.success("✅ All issues resolved. File is compliant.")
+        
+        # Show clean rows in expandable success section
+        if clean_indices:
+            st.write("")
+            with st.expander(f"✅ **{len(clean_indices)} rows verified and compliant** - Click to expand", expanded=False):
                 st.dataframe(df.loc[clean_indices], use_container_width=True)
-            else:
-                st.info("No verified rows yet. Fix issues in the Review tab.")
 
         # --- EXPORT SECTION ---
         st.write("")
