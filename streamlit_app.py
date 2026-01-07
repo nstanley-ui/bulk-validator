@@ -6,62 +6,50 @@ import random
 import re
 from io import BytesIO
 
-# --- CONFIGURATION & AI THEME ---
-st.set_page_config(page_title="Mojo // AI Validator", page_icon="🧬", layout="wide")
+# --- CONFIGURATION & HIGH CONTRAST THEME ---
+st.set_page_config(page_title="Mojo Validator Pro", page_icon="🧬", layout="wide")
 
-# CUSTOM CSS FOR "AI LOOK" (Dark Mode, Neon Accents, Tech Font)
+# CUSTOM CSS: Clean, High-Contrast, Professional
 st.markdown("""
 <style>
     /* Main Background */
     .stApp {
-        background-color: #0E1117;
-        color: #E0E0E0;
+        background-color: #F8F9FA;
+        color: #212529;
     }
     /* Headers */
     h1, h2, h3 {
-        font-family: 'Source Code Pro', monospace;
-        background: -webkit-linear-gradient(45deg, #00D4FF, #00FF94);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        color: #0d1117;
         font-weight: 800;
+        letter-spacing: -0.5px;
     }
     /* Cards/Containers */
     div[data-testid="stBorder"] {
-        background-color: #161B22;
-        border: 1px solid #30363D;
-        border-radius: 8px;
-    }
-    /* Buttons */
-    div.stButton > button {
-        background-color: #21262D;
-        color: #58A6FF;
-        border: 1px solid #30363D;
-        font-family: 'Source Code Pro', monospace;
-    }
-    div.stButton > button:hover {
-        border-color: #58A6FF;
-        box-shadow: 0 0 10px rgba(88, 166, 255, 0.2);
-    }
-    /* Primary Action Button */
-    button[kind="primary"] {
-        background: linear-gradient(90deg, #00D4FF, #0055FF);
-        border: none;
-        color: white !important;
-        font-weight: bold;
-    }
-    /* Expander */
-    .streamlit-expanderHeader {
-        background-color: #161B22;
-        color: #8B949E;
-        font-family: 'Source Code Pro', monospace;
+        background-color: #FFFFFF;
+        border: 1px solid #D1D5DB;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
     /* Badges */
     .platform-badge {
-        font-size: 0.8rem;
-        padding: 4px 8px;
+        font-size: 0.75rem;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    /* Button Tweaks for density */
+    div.stButton > button {
+        width: 100%;
         border-radius: 4px;
-        font-weight: bold;
-        font-family: monospace;
+        font-weight: 600;
+    }
+    /* Fix Button */
+    button[kind="primary"] {
+        background-color: #2563EB; 
+        border: none;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -126,16 +114,21 @@ def check_policy_violations(text, platform):
     return None, None
 
 # --- 4. MAIN ANALYZER ---
-def analyze_row(row, index, platform, memory):
+def analyze_row(row, index, platform, memory, filename, ignored_set):
     issues = []
     
+    # Helper to check if issue is ignored
+    def is_ignored(col_name):
+        key = f"{filename}|{index}|{col_name}"
+        return key in ignored_set
+
     # URL CHECK
     url_col = None
     if 'Final URL' in row: url_col = 'Final URL'
     elif 'Destination URL' in row: url_col = 'Destination URL'
     elif 'Link URL' in row: url_col = 'Link URL'
     
-    if url_col and pd.notna(row[url_col]):
+    if url_col and pd.notna(row[url_col]) and not is_ignored(url_col):
         url = str(row[url_col])
         if ' ' in url:
             issues.append({'col': url_col, 'original': url, 'proposed': url.replace(' ', ''), 'reason': 'Space in URL'})
@@ -144,7 +137,7 @@ def analyze_row(row, index, platform, memory):
 
     # PLATFORM SPECIFIC
     if platform == "Google Ads":
-        if 'Headline' in row and pd.notna(row['Headline']):
+        if 'Headline' in row and pd.notna(row['Headline']) and not is_ignored('Headline'):
             text = str(row['Headline'])
             fix, reason = check_policy_violations(text, platform)
             if fix:
@@ -156,11 +149,11 @@ def analyze_row(row, index, platform, memory):
             elif text.isupper() and len(text) > 4:
                  issues.append({'col': 'Headline', 'original': text, 'proposed': text.title(), 'reason': 'Excessive Capitalization'})
 
-        if 'Max CPC' in row and pd.notna(row['Max CPC']):
+        if 'Max CPC' in row and pd.notna(row['Max CPC']) and not is_ignored('Max CPC'):
              issues.append({'col': 'Max CPC', 'original': row['Max CPC'], 'proposed': None, 'reason': 'Manual Bid in Auto Campaign'})
 
     elif platform == "LinkedIn Ads":
-        if 'Headline' in row and pd.notna(row['Headline']):
+        if 'Headline' in row and pd.notna(row['Headline']) and not is_ignored('Headline'):
             text = str(row['Headline'])
             fix, reason = check_policy_violations(text, platform)
             if fix:
@@ -168,26 +161,26 @@ def analyze_row(row, index, platform, memory):
             elif len(text) > 70:
                 issues.append({'col': 'Headline', 'original': text, 'proposed': text[:70], 'reason': f'Mobile Truncation Risk ({len(text)}/70)'})
 
-        if 'Introductory Text' in row and pd.notna(row['Introductory Text']):
+        if 'Introductory Text' in row and pd.notna(row['Introductory Text']) and not is_ignored('Introductory Text'):
             text = str(row['Introductory Text'])
             if len(text) > 150:
                  issues.append({'col': 'Introductory Text', 'original': text, 'proposed': text, 'reason': f'Will get "See More" cut-off ({len(text)}/150)'})
 
         valid_ctas = ['APPLY', 'DOWNLOAD', 'VIEW_QUOTE', 'LEARN_MORE', 'SIGN_UP', 'SUBSCRIBE', 'REGISTER', 'JOIN', 'ATTEND', 'REQUEST_DEMO']
-        if 'Call to Action' in row:
+        if 'Call to Action' in row and not is_ignored('Call to Action'):
             cta = str(row['Call to Action']).upper().replace(' ', '_')
             if pd.isna(row['Call to Action']) or row['Call to Action'] == '':
                  issues.append({'col': 'Call to Action', 'original': '', 'proposed': 'LEARN_MORE', 'reason': 'Missing Required CTA'})
             elif cta not in valid_ctas:
                  issues.append({'col': 'Call to Action', 'original': row['Call to Action'], 'proposed': 'LEARN_MORE', 'reason': 'Invalid CTA Format'})
 
-        if 'Image File Name' in row:
+        if 'Image File Name' in row and not is_ignored('Image File Name'):
              img = str(row['Image File Name'])
              if pd.isna(img) or img == 'nan' or img == '':
                   issues.append({'col': 'Image File Name', 'original': '', 'proposed': 'creative_placeholder.jpg', 'reason': 'Missing Image File'})
 
     elif platform == "Meta Ads (Facebook/Instagram)":
-        if 'Title' in row and pd.notna(row['Title']):
+        if 'Title' in row and pd.notna(row['Title']) and not is_ignored('Title'):
             text = str(row['Title'])
             fix, reason = check_policy_violations(text, platform)
             if fix:
@@ -195,13 +188,13 @@ def analyze_row(row, index, platform, memory):
             elif len(text) > 40:
                 issues.append({'col': 'Title', 'original': text, 'proposed': text[:40], 'reason': f'Too Long ({len(text)}/40)'})
 
-        if 'Body' in row and pd.notna(row['Body']):
+        if 'Body' in row and pd.notna(row['Body']) and not is_ignored('Body'):
             text = str(row['Body'])
             fix, reason = check_policy_violations(text, platform)
             if fix:
                 issues.append({'col': 'Body', 'original': text, 'proposed': fix, 'reason': f"Policy: {reason}"})
                 
-        if 'Image' in row:
+        if 'Image' in row and not is_ignored('Image'):
              img = str(row['Image'])
              if pd.isna(img) or img == 'nan' or img == '':
                   issues.append({'col': 'Image', 'original': '', 'proposed': 'creative_placeholder.jpg', 'reason': 'Missing Image File'})
@@ -252,42 +245,40 @@ def to_excel(df):
 
 # --- APP UI START ---
 
-# SIDEBAR (Testing Instructions)
+# INITIALIZE STATE
+if 'file_cache' not in st.session_state:
+    st.session_state.file_cache = {}
+if 'ignored_issues' not in st.session_state:
+    st.session_state.ignored_issues = set() # Stores "filename|index|col"
+
+# SIDEBAR
 with st.sidebar:
-    st.markdown("## 🧪 MOJO TEST PROTOCOL")
-    st.info("Internal Build v0.9")
+    st.markdown("### 🧬 Mojo Validator Pro")
+    st.caption("Internal Release v1.1")
     
-    st.markdown("""
-    **TESTING POINTERS:**
+    st.info("""
+    **NEW ACTIONS:**
     
-    1. **Download the Demos:** Use the 'Test Data' section to get pre-broken files.
+    ✅ **Fix:** Apply the suggested edit.
     
-    2. **Trigger the 'Policy Engine':**
-       - Google: Try words like "Bitcoin" or "Botox".
-       - Meta: Try "Are you tired?" (Personal Attribute).
-       - LinkedIn: Try "Shocking trick" (Clickbait).
-       
-    3. **Test Multi-Upload:** Drag all 3 demo files in at once to test the batch processor.
+    🙈 **Ignore:** Keep original text & stop flagging.
     
-    4. **Train the AI:**
-       - Fix an error manually (e.g., Change a headline).
-       - Re-upload the same file.
-       - Verify the AI *auto-fixes* it the second time.
+    🗑️ **Exclude:** Remove this row from the clean file.
     """)
     
     st.divider()
-    st.caption("Mojo Creative Sandbox // Confidential")
+    
+    st.markdown("**Test Mode:**")
+    st.caption("1. Download Demo Files below.")
+    st.caption("2. Upload them to the dropzone.")
+    st.caption("3. Try ignoring and excluding errors.")
 
 # MAIN HEADER
-st.title("MOJO // VALIDATOR")
-st.caption("AI-Powered Compliance & Creative Validation Engine")
-
-if 'file_cache' not in st.session_state:
-    st.session_state.file_cache = {}
+st.title("Mojo // Creative Validator")
+st.markdown("Multi-platform compliance engine. Upload your bulk sheets to automatically fix API errors and policy violations.")
 
 # DEMO DOWNLOADS
-with st.expander("📂 GENERATE TEST DATA (50 ROWS)", expanded=False):
-    st.markdown("Use these files to stress-test the validation logic.")
+with st.expander("📂 Download Test Data (50 Rows)", expanded=False):
     c1, c2, c3 = st.columns(3)
     c1.download_button("Google Ads .xlsx", generate_demo('google'), "mojo_google_demo.xlsx")
     c2.download_button("LinkedIn Ads .xlsx", generate_demo('linkedin'), "mojo_linkedin_demo.xlsx")
@@ -296,7 +287,7 @@ with st.expander("📂 GENERATE TEST DATA (50 ROWS)", expanded=False):
 st.divider()
 
 # MULTI-UPLOAD
-uploaded_files = st.file_uploader("DROP FILES HERE // BATCH PROCESSING ENABLED", type=['xlsx'], accept_multiple_files=True)
+uploaded_files = st.file_uploader("Drop Excel Files Here (Batch Processing)", type=['xlsx'], accept_multiple_files=True)
 
 # PROCESS FILES INTO STATE
 if uploaded_files:
@@ -314,38 +305,45 @@ if uploaded_files:
 if st.session_state.file_cache:
     memory = load_memory()
     
-    for filename, file_data in st.session_state.file_cache.items():
-        
+    # Iterate files (List conversion to allow modifying dict size if needed, though we only modify values)
+    file_keys = list(st.session_state.file_cache.keys())
+    
+    for filename in file_keys:
+        file_data = st.session_state.file_cache[filename]
         df = file_data['df']
         platform = file_data['platform']
         
-        # --- UI FOR EACH FILE ---
+        # --- FILE HEADER ---
         st.markdown(f"### 📄 {filename}")
         
-        # CHANNEL BADGE (Neon Style)
+        # BADGES
+        badge_style = "background:#E9ECEF; color:#495057; border:1px solid #CED4DA"
         if platform == "Google Ads":
-            st.markdown('<span class="platform-badge" style="background:#4285F4; color:white">GOOGLE ADS</span>', unsafe_allow_html=True)
+            badge_style = "background:#E8F0FE; color:#1A73E8; border:1px solid #1A73E8"
         elif platform == "LinkedIn Ads":
-            st.markdown('<span class="platform-badge" style="background:#0077B5; color:white">LINKEDIN ADS</span>', unsafe_allow_html=True)
+            badge_style = "background:#E1F5FE; color:#0077B5; border:1px solid #0077B5"
         elif platform == "Meta Ads (Facebook/Instagram)":
-            st.markdown('<span class="platform-badge" style="background:#833AB4; color:white">META ADS</span>', unsafe_allow_html=True)
-        else:
-            st.error("UNKNOWN TEMPLATE")
-            continue
+            badge_style = "background:#F3E5F5; color:#833AB4; border:1px solid #833AB4"
+            
+        st.markdown(f'<span class="platform-badge" style="{badge_style}">{platform}</span>', unsafe_allow_html=True)
+        st.write("") # Spacer
 
         # ANALYZE
         rows_with_issues = []
         clean_rows_indices = []
         
-        for idx, row in df.iterrows():
-            issues = analyze_row(row, idx, platform, memory)
+        # Because we might drop rows (Exclude), we need to be careful with iteration
+        # We iterate over the dataframe's current index
+        for idx in df.index:
+            row = df.loc[idx]
+            issues = analyze_row(row, idx, platform, memory, filename, st.session_state.ignored_issues)
             if issues:
                 rows_with_issues.append({'index': idx, 'row': row, 'issues': issues})
             else:
                 clean_rows_indices.append(idx)
         
-        # RESULTS TABS
-        tab1, tab2 = st.tabs([f"🔴 REJECTIONS ({len(rows_with_issues)})", f"✅ APPROVED ({len(clean_rows_indices)})"])
+        # TABS
+        tab1, tab2 = st.tabs([f"🔴 Review Errors ({len(rows_with_issues)})", f"✅ Valid Data ({len(clean_rows_indices)})"])
         
         with tab1:
             if rows_with_issues:
@@ -354,32 +352,54 @@ if st.session_state.file_cache:
                     issues = item['issues']
                     
                     with st.container(border=True):
-                        cols = st.columns([1, 2, 2, 1])
-                        cols[0].markdown(f"**Row {idx+2}**")
+                        # Layout: Info | Issue | Fix | Actions
+                        cols = st.columns([0.5, 2, 2, 1.5])
                         
+                        # Col 1: Row Num
+                        cols[0].caption(f"Row {idx+2}")
+                        
+                        # Col 2: The Problem
                         with cols[1]:
                             for issue in issues:
                                 st.markdown(f"**{issue['col']}**")
-                                st.caption(f":red[{issue['original']}]")
+                                st.code(issue['original'], language=None)
                                 st.caption(f"⚠️ {issue['reason']}")
                         
+                        # Col 3: The Proposal
                         with cols[2]:
                             for issue in issues:
-                                st.markdown("**AI Proposal**")
-                                st.markdown(f":green[{issue['proposed']}]")
+                                st.markdown("**Proposed Change**")
+                                st.code(issue['proposed'], language=None)
                         
+                        # Col 4: ACTIONS (Fix, Ignore, Exclude)
                         with cols[3]:
-                            if st.button("EXECUTE FIX", key=f"fix_{filename}_{idx}"):
+                            st.write("") # Vertical spacer
+                            
+                            # ACTION 1: FIX
+                            if st.button("✅ Fix", key=f"fix_{filename}_{idx}", type="primary", use_container_width=True):
                                 for issue in issues:
                                     st.session_state.file_cache[filename]['df'].at[idx, issue['col']] = issue['proposed']
                                     if issue['col'] in ['Headline', 'Title', 'Headline']:
                                         save_memory({issue['original']: issue['proposed']})
                                 st.rerun()
+
+                            # ACTION 2: IGNORE (Whitelist this specific error)
+                            if st.button("🙈 Ignore", key=f"ignore_{filename}_{idx}", use_container_width=True):
+                                for issue in issues:
+                                    key = f"{filename}|{idx}|{issue['col']}"
+                                    st.session_state.ignored_issues.add(key)
+                                st.rerun()
+
+                            # ACTION 3: EXCLUDE (Drop Row)
+                            if st.button("🗑️ Exclude", key=f"drop_{filename}_{idx}", use_container_width=True):
+                                st.session_state.file_cache[filename]['df'].drop(idx, inplace=True)
+                                st.rerun()
             else:
-                st.success("NO VIOLATIONS DETECTED.")
+                st.success("✨ No errors detected.")
 
         with tab2:
             if clean_rows_indices:
+                # Dynamic Config based on Platform
                 config = {
                     "Final URL": st.column_config.TextColumn("Final URL", width="medium"),
                     "Destination URL": st.column_config.TextColumn("Destination URL", width="medium"),
@@ -396,29 +416,30 @@ if st.session_state.file_cache:
                     config["Description"] = st.column_config.TextColumn("Description", width="large")
 
                 st.dataframe(
-                    df.iloc[clean_rows_indices],
+                    df.loc[clean_rows_indices],
                     use_container_width=True,
                     column_config=config,
                     key=f"data_{filename}"
                 )
             else:
-                st.write("No valid rows yet.")
+                st.caption("No valid rows yet. Fix or Ignore items in the Review tab.")
 
-        # EXPORT BUTTON FOR THIS FILE
+        # EXPORT
         if not rows_with_issues:
             st.download_button(
-                f"📥 DOWNLOAD CLEAN {filename}", 
+                f"📥 Download Clean {filename}", 
                 to_excel(st.session_state.file_cache[filename]['df']), 
                 f"clean_{filename}", 
                 key=f"dl_{filename}",
                 type="primary"
             )
         else:
-            st.warning(f"RESOLVE ISSUES IN {filename} TO ENABLE DOWNLOAD.")
+            st.warning(f"Resolve remaining items in {filename} to enable download.")
             
         st.divider()
 
     # GLOBAL RESET
-    if st.button("RESET SESSION"):
+    if st.button("Clear All Files"):
         st.session_state.file_cache = {}
+        st.session_state.ignored_issues = set()
         st.rerun()
