@@ -241,7 +241,7 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("📋 Campaign Details")
-    customer_id = st.text_input("Customer ID", value="3106590821", help="Your Google Ads Customer ID (no hyphens)")
+    customer_id = st.text_input("Customer ID", value="4368944560", help="Your Google Ads Customer ID (no hyphens)")
     campaign_id = st.text_input("Campaign ID", value="23438621203", help="Campaign where ads will be created")
     ad_group_name = st.text_input("Ad Group Name", value="Creative_Validator_Bin", help="Ad group for validation")
     final_url = st.text_input("Final URL", value="https://www.example.com", help="Landing page URL for all ads")
