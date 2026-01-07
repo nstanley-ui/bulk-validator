@@ -381,39 +381,71 @@ with main_tabs[0]:
 # TAB 2: Demo Files
 with main_tabs[1]:
     st.subheader("📥 Download Demo Files")
-    st.markdown("Don't have an ad file? Try our realistic demo files with 50 ads each.")
+    st.markdown("Don't have an ad file? Try our realistic demo files to see the validator in action!")
     
     # Check if demo files exist
     demo_files = {
-        "LinkedIn Ads": {
+        "LinkedIn Sponsored Content": {
             "csv": "samples/linkedin_demo_50_realistic.csv",
             "xlsx": "samples/linkedin_demo_50_realistic.xlsx",
             "description": "50 LinkedIn Sponsored Content ads (84% valid, 16% with intentional issues)",
             "issues": "URL format, character limits, invalid status, budget violations"
         },
-        "Google Ads": {
+        "LinkedIn Video Ads": {
+            "csv": "samples/linkedin_video_ads_demo.csv",
+            "xlsx": "samples/linkedin_video_ads_demo.xlsx",
+            "description": "20 LinkedIn Video ads (80% valid, 20% with intentional issues)",
+            "issues": "Intro text length, budget minimums, missing video URLs"
+        },
+        "Google Search Ads (RSA)": {
             "csv": "samples/google_ads_demo_50_realistic.csv",
             "xlsx": "samples/google_ads_demo_50_realistic.xlsx",
             "description": "50 Google Responsive Search Ads (84% valid, 16% with intentional issues)",
             "issues": "Headlines >30 chars, descriptions >90 chars, missing URLs"
         },
-        "Meta Ads": {
+        "Google Display Ads": {
+            "csv": "samples/google_display_ads_demo.csv",
+            "xlsx": "samples/google_display_ads_demo.xlsx",
+            "description": "20 Google Display ads (80% valid, 20% with intentional issues)",
+            "issues": "Business name >25 chars, headlines too long, invalid status"
+        },
+        "Google Video Ads (YouTube)": {
+            "csv": "samples/google_video_ads_demo.csv",
+            "xlsx": "samples/google_video_ads_demo.xlsx",
+            "description": "20 YouTube Video ads (80% valid, 20% with intentional issues)",
+            "issues": "Invalid YouTube URLs, CTA too long, missing Final URLs"
+        },
+        "Meta Feed Ads": {
             "csv": "samples/meta_ads_demo_50_realistic.csv",
             "xlsx": "samples/meta_ads_demo_50_realistic.xlsx",
-            "description": "50 Meta Facebook/Instagram ads (80% valid, 20% with intentional issues)",
+            "description": "50 Meta Facebook/Instagram Feed ads (80% valid, 20% with intentional issues)",
             "issues": "Headlines >27 chars (critical!), ALL CAPS, missing URLs"
+        },
+        "Meta Video Ads": {
+            "csv": "samples/meta_video_ads_demo.csv",
+            "xlsx": "samples/meta_video_ads_demo.xlsx",
+            "description": "20 Meta Video ads (80% valid, 20% with intentional issues)",
+            "issues": "Headlines >27 chars, missing video URLs, ALL CAPS text"
+        },
+        "Meta Stories & Reels": {
+            "csv": "samples/meta_stories_reels_demo.csv",
+            "xlsx": "samples/meta_stories_reels_demo.xlsx",
+            "description": "20 Meta Stories/Reels ads (80% valid, 20% with intentional issues)",
+            "issues": "Headlines >25 chars (vertical!), missing media/URLs, ALL CAPS"
         }
     }
     
-    for platform, files in demo_files.items():
+    # Group by platform
+    st.markdown("### 🔵 LinkedIn Ads")
+    for platform in ["LinkedIn Sponsored Content", "LinkedIn Video Ads"]:
+        files = demo_files[platform]
         with st.container():
-            st.markdown(f"### {platform}")
+            st.markdown(f"**{platform}**")
             st.markdown(f"*{files['description']}*")
             st.markdown(f"**Sample issues**: {files['issues']}")
             
             col1, col2 = st.columns(2)
             
-            # Check if files exist
             csv_exists = os.path.exists(files['csv'])
             xlsx_exists = os.path.exists(files['xlsx'])
             
@@ -425,7 +457,8 @@ with main_tabs[1]:
                             data=f,
                             file_name=os.path.basename(files['csv']),
                             mime="text/csv",
-                            use_container_width=True
+                            use_container_width=True,
+                            key=f"csv_{platform}"
                         )
                 else:
                     st.warning("CSV file not found")
@@ -438,7 +471,94 @@ with main_tabs[1]:
                             data=f,
                             file_name=os.path.basename(files['xlsx']),
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True
+                            use_container_width=True,
+                            key=f"xlsx_{platform}"
+                        )
+                else:
+                    st.warning("Excel file not found")
+            
+            st.divider()
+    
+    st.markdown("### 🔴 Google Ads")
+    for platform in ["Google Search Ads (RSA)", "Google Display Ads", "Google Video Ads (YouTube)"]:
+        files = demo_files[platform]
+        with st.container():
+            st.markdown(f"**{platform}**")
+            st.markdown(f"*{files['description']}*")
+            st.markdown(f"**Sample issues**: {files['issues']}")
+            
+            col1, col2 = st.columns(2)
+            
+            csv_exists = os.path.exists(files['csv'])
+            xlsx_exists = os.path.exists(files['xlsx'])
+            
+            with col1:
+                if csv_exists:
+                    with open(files['csv'], 'rb') as f:
+                        st.download_button(
+                            label="📄 Download CSV",
+                            data=f,
+                            file_name=os.path.basename(files['csv']),
+                            mime="text/csv",
+                            use_container_width=True,
+                            key=f"csv_{platform}"
+                        )
+                else:
+                    st.warning("CSV file not found")
+            
+            with col2:
+                if xlsx_exists:
+                    with open(files['xlsx'], 'rb') as f:
+                        st.download_button(
+                            label="📊 Download Excel",
+                            data=f,
+                            file_name=os.path.basename(files['xlsx']),
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True,
+                            key=f"xlsx_{platform}"
+                        )
+                else:
+                    st.warning("Excel file not found")
+            
+            st.divider()
+    
+    st.markdown("### 🔵 Meta Ads")
+    for platform in ["Meta Feed Ads", "Meta Video Ads", "Meta Stories & Reels"]:
+        files = demo_files[platform]
+        with st.container():
+            st.markdown(f"**{platform}**")
+            st.markdown(f"*{files['description']}*")
+            st.markdown(f"**Sample issues**: {files['issues']}")
+            
+            col1, col2 = st.columns(2)
+            
+            csv_exists = os.path.exists(files['csv'])
+            xlsx_exists = os.path.exists(files['xlsx'])
+            
+            with col1:
+                if csv_exists:
+                    with open(files['csv'], 'rb') as f:
+                        st.download_button(
+                            label="📄 Download CSV",
+                            data=f,
+                            file_name=os.path.basename(files['csv']),
+                            mime="text/csv",
+                            use_container_width=True,
+                            key=f"csv_{platform}"
+                        )
+                else:
+                    st.warning("CSV file not found")
+            
+            with col2:
+                if xlsx_exists:
+                    with open(files['xlsx'], 'rb') as f:
+                        st.download_button(
+                            label="📊 Download Excel",
+                            data=f,
+                            file_name=os.path.basename(files['xlsx']),
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True,
+                            key=f"xlsx_{platform}"
                         )
                 else:
                     st.warning("Excel file not found")
