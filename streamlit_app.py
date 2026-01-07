@@ -84,15 +84,16 @@ def initialize_client(developer_token, client_id, client_secret, refresh_token, 
         return None, str(e)
 
 
-def find_or_create_ad_group(client, customer_id, campaign_id, ad_group_name):
-    """Find existing ad group or create a new one"""
+def find_or_create_ad_group(client, customer_id, campaign_id, ad_group_name, ad_group_type_enum):
+    """Find existing ad group or create a new one with specific type"""
     ga_service = client.get_service("GoogleAdsService")
     
     query = f"""
         SELECT 
-            ad_group.id,
-            ad_group.name,
-            ad_group.resource_name
+            ad_group.id, 
+            ad_group.name, 
+            ad_group.resource_name,
+            ad_group.type
         FROM ad_group
         WHERE campaign.id = {campaign_id}
           AND ad_group.name = '{ad_group_name}'
@@ -115,8 +116,16 @@ def find_or_create_ad_group(client, customer_id, campaign_id, ad_group_name):
         ad_group.name = ad_group_name
         ad_group.campaign = campaign_service.campaign_path(customer_id, campaign_id)
         ad_group.status = client.enums.AdGroupStatusEnum.ENABLED
-        ad_group.type_ = client.enums.AdGroupTypeEnum.DISPLAY_RESPONSIVE
+        
+        # SET THE SELECTED TYPE HERE
+        try:
+            type_enum_val = getattr(client.enums.AdGroupTypeEnum, ad_group_type_enum)
+            ad_group.type_ = type_enum_val
+        except AttributeError:
+            # Fallback
+            ad_group.type_ = client.enums.AdGroupTypeEnum.DISPLAY_STANDARD
 
+        # NOTE: cpc_bid_micros REMOVED to prevent "Operation not allowed" error
         
         response = ad_group_service.mutate_ad_groups(
             customer_id=customer_id,
@@ -160,7 +169,7 @@ def upload_image_asset(client, customer_id, image_data, image_name):
 
 
 def create_paused_ad(client, customer_id, ad_group_resource_name, image_asset_resource_name,
-                     creative_name, final_url):
+                      creative_name, final_url):
     """Create a paused responsive display ad"""
     ad_group_ad_service = client.get_service("AdGroupAdService")
     
@@ -173,9 +182,11 @@ def create_paused_ad(client, customer_id, ad_group_resource_name, image_asset_re
         ad = ad_group_ad.ad
         ad.final_urls.append(final_url)
         
+        # This structure is specific to DISPLAY ads.
+        # If user selects a Video Ad Group type, this part will error out.
         responsive_display_ad = ad.responsive_display_ad
         
-        # Add headlines (using creative name as base)
+        # Add headlines
         for i in range(1, 4):
             ad_text_asset = client.get_type("AdTextAsset")
             ad_text_asset.text = f"{creative_name} - Headline {i}"
@@ -234,6 +245,25 @@ def extract_images_from_zip(zip_file):
     return images
 
 
+# --- Mapping User Names to API Enum Names ---
+AD_GROUP_TYPES = {
+    "Display": "DISPLAY_STANDARD",
+    "Display engagement": "DISPLAY_ENGAGEMENT_ADS",
+    "Standard (Search)": "SEARCH_STANDARD",
+    "Dynamic (Search)": "SEARCH_DYNAMIC_ADS",
+    "Shopping": "SHOPPING_PRODUCT_ADS",
+    "Shopping – Showcase": "SHOPPING_SHOWCASE_ADS",
+    "Smart Shopping - product": "SHOPPING_SMART_ADS", 
+    "Hotels - Booking link": "HOTEL_ADS",
+    "Video - Skippable in-stream": "VIDEO_TRUE_VIEW_IN_STREAM",
+    "Video - Non-skippable in-stream": "VIDEO_NON_SKIPPABLE_IN_STREAM",
+    "Video - Bumper": "VIDEO_BUMPER",
+    "Video - In-feed (Discovery)": "VIDEO_TRUE_VIEW_DISCOVERY",
+    "Video - Outstream": "VIDEO_OUT_STREAM",
+    "Video - Responsive": "VIDEO_RESPONSIVE",
+    "Efficient reach": "VIDEO_EFFICIENT_REACH",
+}
+
 # Main form
 st.markdown("---")
 
@@ -241,9 +271,21 @@ col1, col2 = st.columns([1, 1])
 
 with col1:
     st.subheader("📋 Campaign Details")
+    # Updated default ID to your correct account
     customer_id = st.text_input("Customer ID", value="4368944560", help="Your Google Ads Customer ID (no hyphens)")
     campaign_id = st.text_input("Campaign ID", value="23438621203", help="Campaign where ads will be created")
     ad_group_name = st.text_input("Ad Group Name", value="Creative_Validator_Bin", help="Ad group for validation")
+    
+    # NEW DROPDOWN
+    selected_type_label = st.selectbox(
+        "Ad Group Type", 
+        options=list(AD_GROUP_TYPES.keys()),
+        index=0,  # Defaults to "Display"
+        help="Select 'Display' for image validation. Other types may fail if image assets are not compatible."
+    )
+    # Get the technical name
+    ad_group_type_enum = AD_GROUP_TYPES[selected_type_label]
+
     final_url = st.text_input("Final URL", value="https://www.example.com", help="Landing page URL for all ads")
 
 with col2:
@@ -326,8 +368,13 @@ if st.button("🚀 Validate All Creatives", type="primary", use_container_width=
             # Step 2: Find/Create Ad Group
             status_text.text("🔍 Setting up ad group...")
             clean_customer_id = customer_id.replace("-", "")
+            
             ad_group_resource_name, ad_group_id, error = find_or_create_ad_group(
-                client, clean_customer_id, campaign_id, ad_group_name
+                client, 
+                clean_customer_id, 
+                campaign_id, 
+                ad_group_name,
+                ad_group_type_enum # Passing the selected type here
             )
             
             if error:
