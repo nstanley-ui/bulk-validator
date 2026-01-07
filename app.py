@@ -202,7 +202,7 @@ with main_tabs[0]:
     
     # Quick Access Demo Files Section
     with st.expander("🎯 **Quick Start: Try Demo Files**", expanded=False):
-        st.markdown("**Don't have a file? Download and upload a demo to see validation in action!**")
+        st.markdown("**Don't have a file? Click a button below to download a demo, then upload it!**")
         st.markdown("---")
         
         # Google Ads Demos
@@ -210,14 +210,46 @@ with main_tabs[0]:
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("📱 Google Search Ads (RSA)\n50 ads, 16 issues", use_container_width=True, key="demo_google_search"):
-                st.info("👇 Download below in the Demo Files tab, then upload here!")
+            st.markdown("**📱 Google Search Ads (RSA)**")
+            st.caption("50 ads, 16 issues")
+            if os.path.exists("samples/google_ads_demo_50_realistic.csv"):
+                with open("samples/google_ads_demo_50_realistic.csv", 'rb') as f:
+                    st.download_button(
+                        label="📄 Download CSV",
+                        data=f,
+                        file_name="google_ads_demo_50_realistic.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="quick_google_search_csv"
+                    )
+        
         with col2:
-            if st.button("🖼️ Google Display Ads\n20 ads, 4 issues", use_container_width=True, key="demo_google_display"):
-                st.info("👇 Download below in the Demo Files tab, then upload here!")
+            st.markdown("**🖼️ Google Display Ads**")
+            st.caption("20 ads, 4 issues")
+            if os.path.exists("samples/google_display_ads_demo.csv"):
+                with open("samples/google_display_ads_demo.csv", 'rb') as f:
+                    st.download_button(
+                        label="📄 Download CSV",
+                        data=f,
+                        file_name="google_display_ads_demo.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="quick_google_display_csv"
+                    )
+        
         with col3:
-            if st.button("🎬 Google YouTube Video Ads\n20 ads, 4 issues", use_container_width=True, key="demo_google_video"):
-                st.info("👇 Download below in the Demo Files tab, then upload here!")
+            st.markdown("**🎬 Google YouTube Video**")
+            st.caption("20 ads, 4 issues")
+            if os.path.exists("samples/google_video_ads_demo.csv"):
+                with open("samples/google_video_ads_demo.csv", 'rb') as f:
+                    st.download_button(
+                        label="📄 Download CSV",
+                        data=f,
+                        file_name="google_video_ads_demo.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="quick_google_video_csv"
+                    )
         
         st.markdown("---")
         
@@ -226,14 +258,46 @@ with main_tabs[0]:
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("📰 Meta Feed Ads\n50 ads, 10 issues", use_container_width=True, key="demo_meta_feed"):
-                st.info("👇 Download below in the Demo Files tab, then upload here!")
+            st.markdown("**📰 Meta Feed Ads**")
+            st.caption("50 ads, 10 issues")
+            if os.path.exists("samples/meta_ads_demo_50_realistic.csv"):
+                with open("samples/meta_ads_demo_50_realistic.csv", 'rb') as f:
+                    st.download_button(
+                        label="📄 Download CSV",
+                        data=f,
+                        file_name="meta_ads_demo_50_realistic.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="quick_meta_feed_csv"
+                    )
+        
         with col2:
-            if st.button("📹 Meta Video Ads\n20 ads, 4 issues", use_container_width=True, key="demo_meta_video"):
-                st.info("👇 Download below in the Demo Files tab, then upload here!")
+            st.markdown("**📹 Meta Video Ads**")
+            st.caption("20 ads, 4 issues")
+            if os.path.exists("samples/meta_video_ads_demo.csv"):
+                with open("samples/meta_video_ads_demo.csv", 'rb') as f:
+                    st.download_button(
+                        label="📄 Download CSV",
+                        data=f,
+                        file_name="meta_video_ads_demo.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="quick_meta_video_csv"
+                    )
+        
         with col3:
-            if st.button("📲 Meta Stories & Reels\n20 ads, 4 issues", use_container_width=True, key="demo_meta_stories"):
-                st.info("👇 Download below in the Demo Files tab, then upload here!")
+            st.markdown("**📲 Meta Stories & Reels**")
+            st.caption("20 ads, 4 issues")
+            if os.path.exists("samples/meta_stories_reels_demo.csv"):
+                with open("samples/meta_stories_reels_demo.csv", 'rb') as f:
+                    st.download_button(
+                        label="📄 Download CSV",
+                        data=f,
+                        file_name="meta_stories_reels_demo.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="quick_meta_stories_csv"
+                    )
         
         st.markdown("---")
         
@@ -242,14 +306,36 @@ with main_tabs[0]:
         col1, col2 = st.columns(2)
         
         with col1:
-            if st.button("💼 LinkedIn Sponsored Content\n50 ads, 8 issues", use_container_width=True, key="demo_linkedin_sponsored"):
-                st.info("👇 Download below in the Demo Files tab, then upload here!")
+            st.markdown("**💼 LinkedIn Sponsored Content**")
+            st.caption("50 ads, 8 issues")
+            if os.path.exists("samples/linkedin_demo_50_realistic.csv"):
+                with open("samples/linkedin_demo_50_realistic.csv", 'rb') as f:
+                    st.download_button(
+                        label="📄 Download CSV",
+                        data=f,
+                        file_name="linkedin_demo_50_realistic.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="quick_linkedin_sponsored_csv"
+                    )
+        
         with col2:
-            if st.button("🎥 LinkedIn Video Ads\n20 ads, 4 issues", use_container_width=True, key="demo_linkedin_video"):
-                st.info("👇 Download below in the Demo Files tab, then upload here!")
+            st.markdown("**🎥 LinkedIn Video Ads**")
+            st.caption("20 ads, 4 issues")
+            if os.path.exists("samples/linkedin_video_ads_demo.csv"):
+                with open("samples/linkedin_video_ads_demo.csv", 'rb') as f:
+                    st.download_button(
+                        label="📄 Download CSV",
+                        data=f,
+                        file_name="linkedin_video_ads_demo.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                        key="quick_linkedin_video_csv"
+                    )
         
         st.markdown("---")
-        st.markdown("💡 **Tip**: Click the **Demo Files** tab above to download any of these files!")
+        st.success("✅ **After downloading**: Upload the file below to see validation in action!")
+        st.info("💡 **Need Excel?** Visit the Demo Files tab for Excel versions!")
     
     st.markdown("---")
     
