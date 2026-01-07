@@ -1,26 +1,127 @@
-# Streamlit Secrets (NEVER commit these!)
-.streamlit/secrets.toml
+# Mojo Validator - Git Ignore File
 
-# Python
+# ============================================
+# Learning System Database (NEVER commit this!)
+# ============================================
+validator_learning.db
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# ============================================
+# Streamlit Cache & Secrets
+# ============================================
+.streamlit/secrets.toml
+.streamlit/config.toml
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
+*.pyc
+*.pyo
+*.pyd
 .Python
+
+# ============================================
+# Python Virtual Environments
+# ============================================
 venv/
 env/
 ENV/
+.venv
+*.egg-info/
+dist/
+build/
 
-# IDEs
+# ============================================
+# Backup Files & Temporary Files
+# ============================================
+*.backup
+*.bak
+*.tmp
+*.log
+*~
+.DS_Store
+Thumbs.db
+
+# ============================================
+# IDE & Editor Files
+# ============================================
 .vscode/
 .idea/
 *.swp
+*.swo
+*.swn
+.project
+.pydevproject
+
+# ============================================
+# Test Files & Sample Data
+# ============================================
+test_uploads/
+sample_data/
+*.test.csv
+*.test.xlsx
+
+# ============================================
+# Exports & Downloads (user-generated)
+# ============================================
+VERIFIED_*.csv
+VERIFIED_*.xlsx
+DRAFT_*.csv
+DRAFT_*.xlsx
+exports/
+downloads/
+
+# ============================================
+# Old Versions (if you're migrating)
+# ============================================
+mojo_memory.json.backup
+streamlit_app_old.py
+*_OLD.*
+
+# ============================================
+# OS-Specific
+# ============================================
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
 
-# Logs
-*.log
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Google Ads credentials
-google-ads.yaml
-*.yaml
-!secrets.toml.example
+# Linux
+.directory
+*~
+
+# ============================================
+# Package Manager
+# ============================================
+node_modules/
+.npm
+package-lock.json
+yarn.lock
+
+# ============================================
+# Documentation Builds (if you add them later)
+# ============================================
+docs/_build/
+site/
+
+# ============================================
+# Coverage & Testing
+# ============================================
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+
+# ============================================
+# Keep These (add ! to whitelist)
+# ============================================
+!.gitignore
+!README*.md
+!requirements*.txt
+!streamlit_app.py
+!devcontainer.json
