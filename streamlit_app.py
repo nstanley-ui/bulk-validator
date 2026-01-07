@@ -276,7 +276,7 @@ with col1:
     # Updated default ID to your correct account (from screenshot)
     customer_id = st.text_input("Customer ID", value="4368944560", help="Your Google Ads Customer ID (no hyphens)")
     campaign_id = st.text_input("Campaign ID", value="23438621203", help="Campaign where ads will be created")
-    ad_group_name = st.text_input("Ad Group Name", value="Creative_Validator_Bin", help="Ad group for validation")
+    ad_group_name = st.text_input("Ad Group Name", value="Test_Bin", help="Ad group for validation")
     
     # NEW DROPDOWN
     selected_type_label = st.selectbox(
