@@ -236,6 +236,9 @@ class ValidatorEngine:
                 recommended_max = validator.get('recommended_max', max_len)
                 
                 if val_len > max_len:
+                    # Generate intelligent truncation suggestion
+                    truncated = self._smart_truncate(val_str, max_len)
+                    
                     row_issues.append(Issue(
                         issue_id=f"{idx}_{col}_len",
                         row_idx=idx,
@@ -243,10 +246,12 @@ class ValidatorEngine:
                         severity="BLOCKER",
                         message=validator.get('message', f"Value exceeds max length of {max_len} characters (currently {val_len})"),
                         original_value=val,
-                        suggested_fix="Truncate"
+                        suggested_fix=f'"{truncated}"'
                     ))
                 elif val_len > recommended_max:
                     # Warning for exceeding recommended length
+                    truncated_recommended = self._smart_truncate(val_str, recommended_max)
+                    
                     row_issues.append(Issue(
                         issue_id=f"{idx}_{col}_len_warn",
                         row_idx=idx,
@@ -254,7 +259,7 @@ class ValidatorEngine:
                         severity="WARNING",
                         message=f"Value exceeds recommended length of {recommended_max} characters (currently {val_len}). May be truncated on some devices.",
                         original_value=val,
-                        suggested_fix=f"Consider shortening to {recommended_max} characters"
+                        suggested_fix=f'"{truncated_recommended}"'
                     ))
             
             # Regex check
@@ -369,10 +374,9 @@ class ValidatorEngine:
                 continue
 
             # Apply the fix
-            if issue.suggested_fix == "Truncate":
-                max_len = next((v['max_length'] for v in config.get('validators', []) if v['column'] == issue.column), None)
-                if max_len:
-                    df.at[idx, issue.column] = str(df.at[idx, issue.column])[:max_len]
+            if issue.suggested_fix.startswith('"') and issue.suggested_fix.endswith('"'):
+                # Truncated text suggestion (remove quotes)
+                df.at[idx, issue.column] = issue.suggested_fix[1:-1]
             
             elif "Change to one of" in issue.suggested_fix:
                 # Value mapping fix logic
@@ -387,6 +391,39 @@ class ValidatorEngine:
                                     break
                         elif fix['rule'] == "lowercase_to_uppercase":
                             df.at[idx, issue.column] = str(df.at[idx, issue.column]).upper()
+
+    def _smart_truncate(self, text: str, max_length: int) -> str:
+        """
+        Intelligently truncate text to max_length, trying to preserve whole words.
+        Adds ellipsis (...) if truncated.
+        
+        Args:
+            text: Original text
+            max_length: Maximum character length
+            
+        Returns:
+            Truncated text with ellipsis if needed
+        """
+        if len(text) <= max_length:
+            return text
+        
+        # Reserve 3 characters for ellipsis
+        target_length = max_length - 3
+        
+        if target_length < 10:
+            # If too short for smart truncation, just hard truncate
+            return text[:max_length]
+        
+        # Truncate to target length
+        truncated = text[:target_length]
+        
+        # Try to truncate at last complete word
+        last_space = truncated.rfind(' ')
+        if last_space > target_length * 0.7:  # Only if we don't lose more than 30%
+            truncated = truncated[:last_space]
+        
+        # Add ellipsis
+        return truncated.rstrip() + "..."
 
     def _generate_summary(self, df: pd.DataFrame, issues: List[Issue]) -> SummaryStats:
         """Generate validation summary statistics."""
