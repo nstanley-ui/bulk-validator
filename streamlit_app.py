@@ -28,20 +28,12 @@ def save_memory(new_rules):
 # --- 2. PLATFORM DETECTION ---
 def detect_platform(df):
     columns = set(df.columns)
-    
-    # META (Facebook/Instagram)
     if {'Title', 'Body', 'Link URL'}.issubset(columns):
         return "Meta Ads (Facebook/Instagram)"
-    
-    # LINKEDIN (Official Spec Check)
-    # Checks for 'Introductory Text' and 'Headline' which are specific to LinkedIn Bulk Spec
     elif {'Headline', 'Introductory Text', 'Destination URL'}.issubset(columns):
         return "LinkedIn Ads"
-    
-    # GOOGLE
     elif {'Headline', 'Description', 'Final URL'}.issubset(columns):
         return "Google Ads"
-    
     else:
         return "Unknown"
 
@@ -81,11 +73,10 @@ def check_policy_violations(text, platform):
 def analyze_row(row, index, platform, memory):
     issues = []
     
-    # --- COMMON: URL CHECK ---
-    # Map the various platform URL headers to a single variable
+    # URL CHECK
     url_col = None
     if 'Final URL' in row: url_col = 'Final URL'
-    elif 'Destination URL' in row: url_col = 'Destination URL' # LinkedIn Official
+    elif 'Destination URL' in row: url_col = 'Destination URL'
     elif 'Link URL' in row: url_col = 'Link URL'
     
     if url_col and pd.notna(row[url_col]):
@@ -95,9 +86,7 @@ def analyze_row(row, index, platform, memory):
         if not url.startswith(('http://', 'https://')):
             issues.append({'col': url_col, 'original': url, 'proposed': 'https://' + url, 'reason': 'Missing http/https'})
 
-    # --- PLATFORM SPECIFIC CHECKS ---
-    
-    # 1. Google Ads
+    # PLATFORM SPECIFIC
     if platform == "Google Ads":
         if 'Headline' in row and pd.notna(row['Headline']):
             text = str(row['Headline'])
@@ -114,9 +103,7 @@ def analyze_row(row, index, platform, memory):
         if 'Max CPC' in row and pd.notna(row['Max CPC']):
              issues.append({'col': 'Max CPC', 'original': row['Max CPC'], 'proposed': None, 'reason': 'Manual Bid in Auto Campaign'})
 
-    # 2. LinkedIn Ads (Updated to Official Spec)
     elif platform == "LinkedIn Ads":
-        # HEADLINE (Max 200, Truncates ~70)
         if 'Headline' in row and pd.notna(row['Headline']):
             text = str(row['Headline'])
             fix, reason = check_policy_violations(text, platform)
@@ -125,14 +112,11 @@ def analyze_row(row, index, platform, memory):
             elif len(text) > 70:
                 issues.append({'col': 'Headline', 'original': text, 'proposed': text[:70], 'reason': f'Mobile Truncation Risk ({len(text)}/70)'})
 
-        # INTRODUCTORY TEXT (The "Post" text)
         if 'Introductory Text' in row and pd.notna(row['Introductory Text']):
             text = str(row['Introductory Text'])
             if len(text) > 150:
-                 # It doesn't reject >150, but it hides it behind "See More". Valid warning.
                  issues.append({'col': 'Introductory Text', 'original': text, 'proposed': text, 'reason': f'Will get "See More" cut-off ({len(text)}/150)'})
 
-        # CALL TO ACTION (Required Field Check)
         valid_ctas = ['APPLY', 'DOWNLOAD', 'VIEW_QUOTE', 'LEARN_MORE', 'SIGN_UP', 'SUBSCRIBE', 'REGISTER', 'JOIN', 'ATTEND', 'REQUEST_DEMO']
         if 'Call to Action' in row:
             cta = str(row['Call to Action']).upper().replace(' ', '_')
@@ -141,13 +125,11 @@ def analyze_row(row, index, platform, memory):
             elif cta not in valid_ctas:
                  issues.append({'col': 'Call to Action', 'original': row['Call to Action'], 'proposed': 'LEARN_MORE', 'reason': 'Invalid CTA Format'})
 
-        # IMAGE FILE
         if 'Image File Name' in row:
              img = str(row['Image File Name'])
              if pd.isna(img) or img == 'nan' or img == '':
                   issues.append({'col': 'Image File Name', 'original': '', 'proposed': 'creative_placeholder.jpg', 'reason': 'Missing Image File'})
 
-    # 3. Meta Ads
     elif platform == "Meta Ads (Facebook/Instagram)":
         if 'Title' in row and pd.notna(row['Title']):
             text = str(row['Title'])
@@ -170,54 +152,35 @@ def analyze_row(row, index, platform, memory):
 
     return issues
 
-# --- 5. DEMO GENERATOR (Updated with Official Specs) ---
+# --- 5. DEMO GENERATOR ---
 def generate_demo(platform):
     output = BytesIO()
     data = []
     
-    def rand_url(): return random.choice(['https://site.com', 'https://broken url.com', 'https://mysite.org'])
-
     if platform == 'google':
         for i in range(50):
             row = {'Headline': f"Valid Headline {i}", 'Description': "Desc", 'Final URL': "https://site.com", 'Max CPC': None}
-            if i == 0: row['Headline'] = "Invest in Bitcoin" # Crypto Flag
-            if i == 1: row['Headline'] = "Prescription Meds" # Medical Flag
-            if i == 2: row['Headline'] = "THIS IS SHOUTING" # Caps Flag
-            if i == 3: row['Headline'] = "Headline Too Long For Google Ads" # Length Flag
-            if i == 4: row['Max CPC'] = 1.50 # Bid Flag
+            if i == 0: row['Headline'] = "Invest in Bitcoin"
+            if i == 1: row['Headline'] = "Prescription Meds"
+            if i == 2: row['Headline'] = "THIS IS SHOUTING"
+            if i == 3: row['Headline'] = "Headline Too Long For Google Ads"
+            if i == 4: row['Max CPC'] = 1.50
             data.append(row)
             
     elif platform == 'linkedin':
         for i in range(50):
-            # OFFICIAL LINKEDIN COLUMNS
-            row = {
-                'Campaign Name': 'Q1 B2B Campaign', 
-                'Headline': f"Professional Update {i}", 
-                'Introductory Text': "We help businesses grow.", 
-                'Destination URL': "https://linkedin.com",
-                'Image File Name': f"creative_{i:03d}.jpg",
-                'Call to Action': 'LEARN_MORE'
-            }
-            
-            if i == 0: row['Headline'] = "You won't believe this shocking trick" # Clickbait Policy
-            if i == 1: row['Headline'] = "This headline is way too long for LinkedIn mobile devices and will cut off" # Length
-            if i == 2: row['Call to Action'] = "CLICK HERE" # Invalid CTA (Must be enum)
-            if i == 3: row['Introductory Text'] = "This introductory text is extremely long and will definitely result in the 'See More' button appearing, which lowers click-through rates because users have to click twice to read the message." # See More Warning
-            
+            row = {'Campaign Name': 'Q1', 'Headline': f"Professional Update {i}", 'Introductory Text': "Intro", 'Destination URL': "https://li.com", 'Image File Name': f"img_{i}.jpg", 'Call to Action': 'LEARN_MORE'}
+            if i == 0: row['Headline'] = "You won't believe this shocking trick"
+            if i == 1: row['Headline'] = "This headline is way too long for LinkedIn mobile devices and will cut off"
+            if i == 2: row['Call to Action'] = "CLICK HERE"
             data.append(row)
 
     elif platform == 'meta':
         for i in range(50):
-            row = {
-                'Campaign Name': 'Social Q1', 
-                'Title': f"Fresh Look {i}", 
-                'Body': "Great vibes only.", 
-                'Link URL': "https://meta.com",
-                'Image': f"social_post_{i:03d}.jpg"
-            }
-            if i == 0: row['Body'] = "Are you tired of being overweight?" # Personal Attribute Flag
-            if i == 1: row['Title'] = "Work from home get rich" # MLM Flag
-            if i == 2: row['Title'] = "This Title Is Too Long For Meta Feed" # Length Flag
+            row = {'Campaign Name': 'Social', 'Title': f"Fresh Look {i}", 'Body': "Vibes.", 'Link URL': "https://meta.com", 'Image': f"pic_{i}.jpg"}
+            if i == 0: row['Body'] = "Are you tired of being overweight?"
+            if i == 1: row['Title'] = "Work from home get rich"
+            if i == 2: row['Title'] = "This Title Is Too Long For Meta Feed"
             data.append(row)
         
     df = pd.DataFrame(data)
@@ -233,115 +196,146 @@ def to_excel(df):
 
 # --- APP UI ---
 st.title("🛡️ Universal Ad Policy Validator")
-st.markdown("Checks for **API Errors**, **Policy Violations**, and **Rejection Flags**.")
 
-if 'df_data' not in st.session_state:
-    st.session_state.df_data = None
-if 'platform' not in st.session_state:
-    st.session_state.platform = None
+if 'file_cache' not in st.session_state:
+    st.session_state.file_cache = {}
 
 # DEMO DOWNLOADS
 with st.expander("📥 Get Demo Files (50 Rows)", expanded=False):
     c1, c2, c3 = st.columns(3)
-    c1.download_button("Google Demo", generate_demo('google'), "demo_google_test_data.xlsx")
-    c2.download_button("LinkedIn Demo (Official Spec)", generate_demo('linkedin'), "demo_linkedin_official.xlsx")
-    c3.download_button("Meta Demo", generate_demo('meta'), "demo_meta_test_data.xlsx")
+    c1.download_button("Google Demo", generate_demo('google'), "demo_google.xlsx")
+    c2.download_button("LinkedIn Demo", generate_demo('linkedin'), "demo_linkedin.xlsx")
+    c3.download_button("Meta Demo", generate_demo('meta'), "demo_meta.xlsx")
 
 st.divider()
 
-# UPLOAD
-uploaded_file = st.file_uploader("Upload Excel File", type=['xlsx'])
-if uploaded_file and st.session_state.df_data is None:
-    df = pd.read_excel(uploaded_file)
-    st.session_state.df_data = df
-    st.session_state.platform = detect_platform(df)
-    st.rerun()
+# MULTI-UPLOAD
+uploaded_files = st.file_uploader("Upload Excel Files (Batch Processing)", type=['xlsx'], accept_multiple_files=True)
 
-# MAIN INTERFACE
-if st.session_state.df_data is not None:
-    df = st.session_state.df_data
-    platform = st.session_state.platform
+# PROCESS FILES INTO STATE
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        file_key = uploaded_file.name
+        if file_key not in st.session_state.file_cache:
+            df = pd.read_excel(uploaded_file)
+            platform = detect_platform(df)
+            st.session_state.file_cache[file_key] = {
+                'df': df,
+                'platform': platform
+            }
+
+# MAIN INTERFACE LOOP
+if st.session_state.file_cache:
     memory = load_memory()
     
-    st.info(f"Detected: **{platform}** | Total Rows: {len(df)}")
-    
-    rows_with_issues = []
-    clean_rows_indices = []
-    
-    for idx, row in df.iterrows():
-        issues = analyze_row(row, idx, platform, memory)
-        if issues:
-            rows_with_issues.append({'index': idx, 'row': row, 'issues': issues})
-        else:
-            clean_rows_indices.append(idx)
-            
-    # VIEW: ERRORS
-    if rows_with_issues:
-        st.subheader(f"🔴 Needs Attention ({len(rows_with_issues)})")
+    # Iterate through each file in session state
+    # Using list() to allow modification of dict during iteration if needed (though we aren't deleting here)
+    for filename, file_data in st.session_state.file_cache.items():
         
-        for item in rows_with_issues:
-            idx = item['index']
-            issues = item['issues']
-            
-            with st.container(border=True):
-                cols = st.columns([1, 2, 2, 1])
-                cols[0].markdown(f"**Row {idx+2}**")
-                
-                with cols[1]:
-                    for issue in issues:
-                        st.markdown(f"**{issue['col']}**: :red[{issue['original']}]")
-                        st.caption(f"⚠️ {issue['reason']}")
+        df = file_data['df']
+        platform = file_data['platform']
+        
+        # --- UI FOR EACH FILE ---
+        st.markdown(f"### 📄 {filename}")
+        
+        # CHANNEL BADGE
+        if platform == "Google Ads":
+            st.caption("DETECTED CHANNEL: :blue-background[**GOOGLE ADS**]")
+        elif platform == "LinkedIn Ads":
+            st.caption("DETECTED CHANNEL: :blue-background[**LINKEDIN ADS**]")
+        elif platform == "Meta Ads (Facebook/Instagram)":
+            st.caption("DETECTED CHANNEL: :blue-background[**META ADS**]")
+        else:
+            st.error("Unknown Template Format")
+            continue
+
+        # ANALYZE
+        rows_with_issues = []
+        clean_rows_indices = []
+        
+        for idx, row in df.iterrows():
+            issues = analyze_row(row, idx, platform, memory)
+            if issues:
+                rows_with_issues.append({'index': idx, 'row': row, 'issues': issues})
+            else:
+                clean_rows_indices.append(idx)
+        
+        # RESULTS TABS (Errors vs Valid)
+        tab1, tab2 = st.tabs([f"🔴 Errors ({len(rows_with_issues)})", f"✅ Valid ({len(clean_rows_indices)})"])
+        
+        with tab1:
+            if rows_with_issues:
+                for item in rows_with_issues:
+                    idx = item['index']
+                    issues = item['issues']
+                    
+                    with st.container(border=True):
+                        cols = st.columns([1, 2, 2, 1])
+                        cols[0].markdown(f"**Row {idx+2}**")
                         
-                with cols[2]:
-                    for issue in issues:
-                        st.markdown(f"**Proposed**: :green[{issue['proposed']}]")
-                
-                with cols[3]:
-                    if st.button("✨ Fix", key=f"fix_{idx}"):
-                        for issue in issues:
-                            st.session_state.df_data.at[idx, issue['col']] = issue['proposed']
-                            if issue['col'] in ['Headline', 'Title', 'Headline']:
-                                save_memory({issue['original']: issue['proposed']})
-                        st.rerun()
+                        with cols[1]:
+                            for issue in issues:
+                                st.markdown(f"**{issue['col']}**")
+                                st.caption(f":red[{issue['original']}]")
+                                st.caption(f"⚠️ {issue['reason']}")
+                        
+                        with cols[2]:
+                            for issue in issues:
+                                st.markdown("**Proposed**")
+                                st.markdown(f":green[{issue['proposed']}]")
+                        
+                        with cols[3]:
+                            # Unique key for every button: filename + row index
+                            if st.button("✨ Fix", key=f"fix_{filename}_{idx}"):
+                                for issue in issues:
+                                    st.session_state.file_cache[filename]['df'].at[idx, issue['col']] = issue['proposed']
+                                    if issue['col'] in ['Headline', 'Title', 'Headline']:
+                                        save_memory({issue['original']: issue['proposed']})
+                                st.rerun()
+            else:
+                st.info("No errors found in this file.")
 
-    else:
-        st.success("🎉 All changes resolved! File is clean.")
+        with tab2:
+            if clean_rows_indices:
+                config = {
+                    "Final URL": st.column_config.TextColumn("Final URL", width="medium"),
+                    "Destination URL": st.column_config.TextColumn("Destination URL", width="medium"),
+                    "Link URL": st.column_config.TextColumn("Link URL", width="medium"),
+                }
+                if platform == "LinkedIn Ads":
+                    config["Headline"] = st.column_config.TextColumn("Headline", width="medium")
+                    config["Introductory Text"] = st.column_config.TextColumn("Introductory Text", width="large")
+                elif platform == "Meta Ads (Facebook/Instagram)":
+                    config["Title"] = st.column_config.TextColumn("Title", width="medium")
+                    config["Body"] = st.column_config.TextColumn("Body", width="large")
+                elif platform == "Google Ads":
+                    config["Headline"] = st.column_config.TextColumn("Headline", width="medium")
+                    config["Description"] = st.column_config.TextColumn("Description", width="large")
 
-    # VIEW: VALID CREATIVES
-    st.divider()
-    with st.expander(f"✅ Valid Creatives ({len(clean_rows_indices)} hidden)", expanded=False):
-        if clean_rows_indices:
-            # DYNAMIC COLUMN CONFIG BASED ON PLATFORM
-            config = {
-                "Final URL": st.column_config.TextColumn("Final URL", width="medium"),
-                "Destination URL": st.column_config.TextColumn("Destination URL", width="medium"),
-                "Link URL": st.column_config.TextColumn("Link URL", width="medium"),
-            }
-            if platform == "LinkedIn Ads":
-                config["Headline"] = st.column_config.TextColumn("Headline", width="medium")
-                config["Introductory Text"] = st.column_config.TextColumn("Introductory Text", width="large")
-                config["Call to Action"] = st.column_config.TextColumn("Call to Action", width="small")
-            elif platform == "Meta Ads (Facebook/Instagram)":
-                config["Title"] = st.column_config.TextColumn("Title", width="medium")
-                config["Body"] = st.column_config.TextColumn("Body", width="large")
-            elif platform == "Google Ads":
-                config["Headline"] = st.column_config.TextColumn("Headline", width="medium")
-                config["Description"] = st.column_config.TextColumn("Description", width="large")
+                st.dataframe(
+                    df.iloc[clean_rows_indices],
+                    use_container_width=True,
+                    column_config=config,
+                    key=f"data_{filename}"
+                )
+            else:
+                st.write("No valid rows yet.")
 
-            st.dataframe(
-                df.iloc[clean_rows_indices],
-                use_container_width=True,
-                column_config=config
+        # EXPORT BUTTON FOR THIS FILE
+        if not rows_with_issues:
+            st.download_button(
+                f"📥 Download Clean {filename}", 
+                to_excel(st.session_state.file_cache[filename]['df']), 
+                f"clean_{filename}", 
+                key=f"dl_{filename}",
+                type="primary"
             )
         else:
-            st.write("No valid rows yet.")
+            st.warning(f"Fix errors in {filename} to download.")
+            
+        st.divider()
 
-    # EXPORT
-    if not rows_with_issues:
-        st.download_button("📥 Download Clean Excel", to_excel(st.session_state.df_data), "clean_file.xlsx", type="primary")
-    else:
-        st.warning("Resolve all Policy Flags above to download.")
-
-    if st.button("Start Over"):
-        st.session_state.df_data = None
+    # GLOBAL RESET
+    if st.button("Start Over (Clear All)"):
+        st.session_state.file_cache = {}
         st.rerun()
