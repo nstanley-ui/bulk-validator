@@ -1,0 +1,133 @@
+platform: Google Display Ads
+version: "2.0"
+description: "Responsive Display Ads for Google Display Network (Jan 2026)"
+
+validators:
+  # Campaign Structure
+  - column: "Campaign"
+    required: true
+    type: string
+    max_length: 255
+    message: "Campaign name is required"
+
+  - column: "Ad Group"
+    required: true
+    type: string
+    max_length: 255
+    message: "Ad group name is required"
+
+  - column: "Status"
+    required: true
+    values: ["Enabled", "Paused", "Removed"]
+    message: "Status must be one of: Enabled, Paused, Removed"
+
+  # Headlines (up to 5 for Responsive Display Ads)
+  - column: "Short Headline"
+    required: true
+    type: string
+    max_length: 30
+    message: "Short headline is required (max 30 characters)"
+
+  - column: "Long Headline"
+    required: true
+    type: string
+    max_length: 90
+    message: "Long headline is required (max 90 characters)"
+
+  # Descriptions
+  - column: "Description"
+    required: true
+    type: string
+    max_length: 90
+    message: "Description is required (max 90 characters)"
+
+  # Business Name
+  - column: "Business Name"
+    required: true
+    type: string
+    max_length: 25
+    message: "Business name is required (max 25 characters)"
+
+  # URLs
+  - column: "Final URL"
+    required: true
+    type: url
+    max_length: 2048
+    regex: "^https?://.+"
+    message: "Final URL is required and must start with http:// or https://"
+
+  # Images
+  - column: "Marketing Image"
+    required: false
+    type: url
+    regex: "^https?://.+"
+    message: "Marketing image must be a valid URL starting with http:// or https://"
+
+  - column: "Square Marketing Image"
+    required: false
+    type: url
+    regex: "^https?://.+"
+    message: "Square marketing image must be a valid URL"
+
+  - column: "Logo"
+    required: false
+    type: url
+    regex: "^https?://.+"
+    message: "Logo must be a valid URL"
+
+  # Call to Action
+  - column: "Call to Action"
+    required: false
+    values: ["LEARN_MORE", "GET_QUOTE", "APPLY_NOW", "SIGN_UP", "CONTACT_US", "SUBSCRIBE", "DOWNLOAD", "BOOK_NOW", "SHOP_NOW"]
+    message: "Call to Action must be from the approved list"
+
+# Auto-fix rules
+fixes:
+  - target_column: "Status"
+    rule: "map_values"
+    mapping:
+      "active": "Enabled"
+      "enabled": "Enabled"
+      "paused": "Paused"
+      "pause": "Paused"
+      "deleted": "Removed"
+      "removed": "Removed"
+    auto_apply: false
+
+  - target_column: "Short Headline"
+    rule: "truncate"
+    max_length: 30
+    auto_apply: false
+    warning: "Short headlines over 30 characters will be rejected"
+
+  - target_column: "Long Headline"
+    rule: "truncate"
+    max_length: 90
+    auto_apply: false
+    warning: "Long headlines over 90 characters will be rejected"
+
+  - target_column: "Business Name"
+    rule: "truncate"
+    max_length: 25
+    auto_apply: false
+    warning: "Business names over 25 characters will be rejected"
+
+# Additional validation rules
+validation_rules:
+  - rule: "check_url_protocol"
+    columns: ["Final URL", "Marketing Image", "Square Marketing Image", "Logo"]
+    message: "URLs must include http:// or https://"
+
+  - rule: "check_capitalization"
+    columns: ["Short Headline", "Long Headline", "Description"]
+    max_uppercase_ratio: 0.5
+    message: "Excessive capitalization violates Google Ads policies"
+
+notes:
+  - "Responsive Display Ads automatically adjust to available space"
+  - "Marketing Image: Min 600x314, recommended 1200x628 (landscape)"
+  - "Square Marketing Image: Min 300x300, recommended 1200x1200"
+  - "Logo: Min 128x128, recommended 1200x1200, square or landscape only"
+  - "Images: JPG, PNG, GIF (non-animated), max 5MB"
+  - "Google will automatically generate different combinations"
+  - "Provide multiple assets for better performance"
