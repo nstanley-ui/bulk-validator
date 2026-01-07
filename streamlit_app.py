@@ -116,7 +116,7 @@ def find_or_create_ad_group(client, customer_id, campaign_id, ad_group_name):
         ad_group.campaign = campaign_service.campaign_path(customer_id, campaign_id)
         ad_group.status = client.enums.AdGroupStatusEnum.ENABLED
         ad_group.type_ = client.enums.AdGroupTypeEnum.DISPLAY_STANDARD
-        ad_group.cpc_bid_micros = 1000000
+
         
         response = ad_group_service.mutate_ad_groups(
             customer_id=customer_id,
