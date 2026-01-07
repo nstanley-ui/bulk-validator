@@ -1,0 +1,3 @@
+Campaign Name,Status,Headline,Introduction,Daily Budget
+Test Campaign 1,ACTIVE,Valid Headline,Intro,50
+Test Campaign 2,paused,Invalid headline that is way too long for the linkedin platform limit of seventy characters,Intro,10

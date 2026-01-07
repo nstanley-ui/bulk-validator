@@ -1,0 +1,26 @@
+platform: Google Ads
+version: "1.0"
+validators:
+  - column: "Campaign"
+    required: true
+    type: string
+  - column: "Ad Group"
+    required: true
+    type: string
+  - column: "Keyword"
+    required: false
+    type: string
+  - column: "Status"
+    required: true
+    values: ["Enabled", "Paused", "Removed"]
+  - column: "Max CPC"
+    required: false
+    type: float
+    min: 0.01
+fixes:
+  - target_column: "Status"
+    rule: "map_values"
+    mapping:
+      "active": "Enabled"
+      "paused": "Paused"
+      "deleted": "Removed"

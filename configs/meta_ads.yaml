@@ -1,0 +1,27 @@
+platform: Meta Ads
+version: "1.0"
+validators:
+  - column: "Campaign Name"
+    required: true
+    type: string
+  - column: "Ad Set Name"
+    required: true
+    type: string
+  - column: "Ad Name"
+    required: true
+    type: string
+  - column: "Campaign Status"
+    required: true
+    values: ["ACTIVE", "PAUSED", "ARCHIVED"]
+  - column: "Body"
+    required: true
+    type: string
+    max_length: 125
+  - column: "Title"
+    required: false
+    type: string
+    max_length: 40
+fixes:
+  - target_column: "Body"
+    rule: "truncate"
+    max_length: 125

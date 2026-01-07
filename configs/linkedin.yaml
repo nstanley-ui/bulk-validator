@@ -1,0 +1,27 @@
+platform: LinkedIn Ads
+version: "1.0"
+validators:
+  - column: "Campaign Name"
+    required: true
+    type: string
+    max_length: 255
+  - column: "Status"
+    required: true
+    values: ["ACTIVE", "PAUSED", "ARCHIVED"]
+  - column: "Headline"
+    required: true
+    max_length: 70
+  - column: "Introduction"
+    required: false
+    max_length: 600
+  - column: "Daily Budget"
+    required: false
+    type: number
+    min: 10
+fixes:
+  - target_column: "Status"
+    rule: "lowercase_to_uppercase"
+    trigger: "any_lowercase"
+  - target_column: "Headline"
+    rule: "truncate"
+    max_length: 70
