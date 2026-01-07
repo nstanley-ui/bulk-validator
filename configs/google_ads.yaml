@@ -1,26 +1,230 @@
 platform: Google Ads
-version: "1.0"
+version: "2.0"
+description: "Updated with Responsive Search Ads and Display Ads requirements (Jan 2026)"
+
 validators:
+  # Campaign Structure
   - column: "Campaign"
     required: true
     type: string
+    max_length: 255
+    message: "Campaign name is required"
+
   - column: "Ad Group"
     required: true
     type: string
-  - column: "Keyword"
-    required: false
-    type: string
+    max_length: 255
+    message: "Ad group name is required"
+
+  # Status
   - column: "Status"
     required: true
     values: ["Enabled", "Paused", "Removed"]
+    message: "Status must be one of: Enabled, Paused, Removed"
+
+  # Responsive Search Ads - Headlines (up to 15)
+  - column: "Headline 1"
+    required: true
+    type: string
+    max_length: 30
+    message: "Headline 1 is required (max 30 characters)"
+
+  - column: "Headline 2"
+    required: true
+    type: string
+    max_length: 30
+    message: "Headline 2 is required (max 30 characters)"
+
+  - column: "Headline 3"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 3 max 30 characters"
+
+  - column: "Headline 4"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 4 max 30 characters"
+
+  - column: "Headline 5"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 5 max 30 characters"
+
+  - column: "Headline 6"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 6 max 30 characters"
+
+  - column: "Headline 7"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 7 max 30 characters"
+
+  - column: "Headline 8"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 8 max 30 characters"
+
+  - column: "Headline 9"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 9 max 30 characters"
+
+  - column: "Headline 10"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 10 max 30 characters"
+
+  - column: "Headline 11"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 11 max 30 characters"
+
+  - column: "Headline 12"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 12 max 30 characters"
+
+  - column: "Headline 13"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 13 max 30 characters"
+
+  - column: "Headline 14"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 14 max 30 characters"
+
+  - column: "Headline 15"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 15 max 30 characters"
+
+  # Descriptions (up to 4)
+  - column: "Description 1"
+    required: true
+    type: string
+    max_length: 90
+    message: "Description 1 is required (max 90 characters)"
+
+  - column: "Description 2"
+    required: false
+    type: string
+    max_length: 90
+    message: "Description 2 max 90 characters"
+
+  - column: "Description 3"
+    required: false
+    type: string
+    max_length: 90
+    message: "Description 3 max 90 characters"
+
+  - column: "Description 4"
+    required: false
+    type: string
+    max_length: 90
+    message: "Description 4 max 90 characters"
+
+  # Display Path
+  - column: "Path 1"
+    required: false
+    type: string
+    max_length: 15
+    message: "Path 1 max 15 characters"
+
+  - column: "Path 2"
+    required: false
+    type: string
+    max_length: 15
+    message: "Path 2 max 15 characters"
+
+  # URLs
+  - column: "Final URL"
+    required: true
+    type: url
+    max_length: 2048
+    regex: "^https?://.+"
+    message: "Final URL is required and must start with http:// or https://"
+
+  # Keywords (if present)
+  - column: "Keyword"
+    required: false
+    type: string
+    max_length: 80
+    message: "Keyword max 80 characters"
+
+  # Bidding
   - column: "Max CPC"
     required: false
     type: float
     min: 0.01
+    message: "Max CPC must be at least $0.01"
+
+  - column: "Max CPM"
+    required: false
+    type: float
+    min: 0.01
+    message: "Max CPM must be at least $0.01"
+
+# Auto-fix rules
 fixes:
   - target_column: "Status"
     rule: "map_values"
     mapping:
       "active": "Enabled"
+      "enabled": "Enabled"
       "paused": "Paused"
+      "pause": "Paused"
       "deleted": "Removed"
+      "removed": "Removed"
+    auto_apply: false
+
+  - target_column: "Headline 1"
+    rule: "truncate"
+    max_length: 30
+    auto_apply: false
+    warning: "Headlines over 30 characters will be rejected by Google"
+
+  - target_column: "Description 1"
+    rule: "truncate"
+    max_length: 90
+    auto_apply: false
+    warning: "Descriptions over 90 characters will be rejected by Google"
+
+# Additional validation rules
+validation_rules:
+  - rule: "check_url_protocol"
+    columns: ["Final URL"]
+    message: "URLs must include http:// or https://"
+
+  - rule: "check_capitalization"
+    columns: ["Headline 1", "Headline 2", "Headline 3", "Description 1", "Description 2"]
+    max_uppercase_ratio: 0.5
+    message: "Excessive capitalization violates Google Ads policies"
+
+  - rule: "check_special_characters"
+    columns: ["Headline 1", "Headline 2", "Description 1"]
+    prohibited_chars: ["!", "?", "*"]
+    max_count: 1
+    message: "Excessive punctuation may lower Quality Score"
+
+notes:
+  - "Responsive Search Ads require minimum 3 headlines and 2 descriptions"
+  - "Google will show different combinations to test performance"
+  - "Pin important headlines to specific positions if needed"
+  - "Spaces count toward character limits"
+  - "Emojis are NOT allowed in Google Search Ads"
+  - "Third headline and second description may not always show"
