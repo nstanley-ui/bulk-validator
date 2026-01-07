@@ -199,6 +199,60 @@ main_tabs = st.tabs(["📤 Upload & Validate", "📥 Demo Files", "📖 Quick St
 # TAB 1: Upload & Validate
 with main_tabs[0]:
     st.subheader("Upload Your Ad File")
+    
+    # Quick Access Demo Files Section
+    with st.expander("🎯 **Quick Start: Try Demo Files**", expanded=False):
+        st.markdown("**Don't have a file? Download and upload a demo to see validation in action!**")
+        st.markdown("---")
+        
+        # Google Ads Demos
+        st.markdown("### 🔴 Google Ads Demos")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("📱 Google Search Ads (RSA)\n50 ads, 16 issues", use_container_width=True, key="demo_google_search"):
+                st.info("👇 Download below in the Demo Files tab, then upload here!")
+        with col2:
+            if st.button("🖼️ Google Display Ads\n20 ads, 4 issues", use_container_width=True, key="demo_google_display"):
+                st.info("👇 Download below in the Demo Files tab, then upload here!")
+        with col3:
+            if st.button("🎬 Google YouTube Video Ads\n20 ads, 4 issues", use_container_width=True, key="demo_google_video"):
+                st.info("👇 Download below in the Demo Files tab, then upload here!")
+        
+        st.markdown("---")
+        
+        # Meta Ads Demos
+        st.markdown("### 🔵 Meta Ads Demos")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("📰 Meta Feed Ads\n50 ads, 10 issues", use_container_width=True, key="demo_meta_feed"):
+                st.info("👇 Download below in the Demo Files tab, then upload here!")
+        with col2:
+            if st.button("📹 Meta Video Ads\n20 ads, 4 issues", use_container_width=True, key="demo_meta_video"):
+                st.info("👇 Download below in the Demo Files tab, then upload here!")
+        with col3:
+            if st.button("📲 Meta Stories & Reels\n20 ads, 4 issues", use_container_width=True, key="demo_meta_stories"):
+                st.info("👇 Download below in the Demo Files tab, then upload here!")
+        
+        st.markdown("---")
+        
+        # LinkedIn Ads Demos
+        st.markdown("### 🔷 LinkedIn Ads Demos")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("💼 LinkedIn Sponsored Content\n50 ads, 8 issues", use_container_width=True, key="demo_linkedin_sponsored"):
+                st.info("👇 Download below in the Demo Files tab, then upload here!")
+        with col2:
+            if st.button("🎥 LinkedIn Video Ads\n20 ads, 4 issues", use_container_width=True, key="demo_linkedin_video"):
+                st.info("👇 Download below in the Demo Files tab, then upload here!")
+        
+        st.markdown("---")
+        st.markdown("💡 **Tip**: Click the **Demo Files** tab above to download any of these files!")
+    
+    st.markdown("---")
+    
     uploaded_file = st.file_uploader(
         "Choose CSV or Excel file",
         type=["csv", "xlsx"],
@@ -381,191 +435,132 @@ with main_tabs[0]:
 # TAB 2: Demo Files
 with main_tabs[1]:
     st.subheader("📥 Download Demo Files")
-    st.markdown("Don't have an ad file? Try our realistic demo files to see the validator in action!")
+    st.markdown("**Don't have an ad file? Download realistic demo files to see the validator in action!**")
+    st.markdown("Each demo includes valid ads plus intentional issues to demonstrate validation.")
+    
+    st.markdown("---")
     
     # Check if demo files exist
     demo_files = {
-        "LinkedIn Sponsored Content": {
+        "🔷 LinkedIn Sponsored Content (50 ads - 16% with issues)": {
             "csv": "samples/linkedin_demo_50_realistic.csv",
             "xlsx": "samples/linkedin_demo_50_realistic.xlsx",
-            "description": "50 LinkedIn Sponsored Content ads (84% valid, 16% with intentional issues)",
-            "issues": "URL format, character limits, invalid status, budget violations"
+            "description": "Professional B2B sponsored content ads for LinkedIn Feed",
+            "issues": "Character limit violations, URL formatting errors, invalid status values, budget below minimum",
+            "details": "42 valid ads | 8 with issues at rows 41-49"
         },
-        "LinkedIn Video Ads": {
+        "🎥 LinkedIn Video Ads (20 ads - 20% with issues)": {
             "csv": "samples/linkedin_video_ads_demo.csv",
             "xlsx": "samples/linkedin_video_ads_demo.xlsx",
-            "description": "20 LinkedIn Video ads (80% valid, 20% with intentional issues)",
-            "issues": "Intro text length, budget minimums, missing video URLs"
+            "description": "Native LinkedIn video ads with intro text and landing pages",
+            "issues": "Intro text over 150 chars, budget below $10 minimum, missing video URLs, invalid status",
+            "details": "16 valid ads | 4 with issues at rows 17-20"
         },
-        "Google Search Ads (RSA)": {
+        "📱 Google Search Ads - RSA (50 ads - 16% with issues)": {
             "csv": "samples/google_ads_demo_50_realistic.csv",
             "xlsx": "samples/google_ads_demo_50_realistic.xlsx",
-            "description": "50 Google Responsive Search Ads (84% valid, 16% with intentional issues)",
-            "issues": "Headlines >30 chars, descriptions >90 chars, missing URLs"
+            "description": "Responsive Search Ads with up to 15 headlines and 4 descriptions",
+            "issues": "Headlines over 30 chars, descriptions over 90 chars, missing Final URLs, ALL CAPS text",
+            "details": "42 valid ads | 8 with issues at rows 45-49"
         },
-        "Google Display Ads": {
+        "🖼️ Google Display Ads (20 ads - 20% with issues)": {
             "csv": "samples/google_display_ads_demo.csv",
             "xlsx": "samples/google_display_ads_demo.xlsx",
-            "description": "20 Google Display ads (80% valid, 20% with intentional issues)",
-            "issues": "Business name >25 chars, headlines too long, invalid status"
+            "description": "Responsive Display Ads for Google Display Network with images",
+            "issues": "Business Name over 25 chars (strict!), short headline too long, missing Final URL, invalid status",
+            "details": "16 valid ads | 4 with issues at rows 17-20"
         },
-        "Google Video Ads (YouTube)": {
+        "🎬 Google Video Ads - YouTube (20 ads - 20% with issues)": {
             "csv": "samples/google_video_ads_demo.csv",
             "xlsx": "samples/google_video_ads_demo.xlsx",
-            "description": "20 YouTube Video ads (80% valid, 20% with intentional issues)",
-            "issues": "Invalid YouTube URLs, CTA too long, missing Final URLs"
+            "description": "YouTube TrueView, Bumper, and Video Discovery ads",
+            "issues": "Invalid YouTube URL (Vimeo instead!), CTA over 10 chars, headline too long, missing Final URL",
+            "details": "16 valid ads | 4 with issues at rows 17-20"
         },
-        "Meta Feed Ads": {
+        "📰 Meta Feed Ads (50 ads - 20% with issues)": {
             "csv": "samples/meta_ads_demo_50_realistic.csv",
             "xlsx": "samples/meta_ads_demo_50_realistic.xlsx",
-            "description": "50 Meta Facebook/Instagram Feed ads (80% valid, 20% with intentional issues)",
-            "issues": "Headlines >27 chars (critical!), ALL CAPS, missing URLs"
+            "description": "Facebook and Instagram Feed placement ads",
+            "issues": "Headlines over 27 chars (CRITICAL - will truncate!), ALL CAPS text, missing URLs, excessive punctuation",
+            "details": "40 valid ads | 10 with issues at rows 45-49"
         },
-        "Meta Video Ads": {
+        "📹 Meta Video Ads (20 ads - 20% with issues)": {
             "csv": "samples/meta_video_ads_demo.csv",
             "xlsx": "samples/meta_video_ads_demo.xlsx",
-            "description": "20 Meta Video ads (80% valid, 20% with intentional issues)",
-            "issues": "Headlines >27 chars, missing video URLs, ALL CAPS text"
+            "description": "Facebook and Instagram video ads for Feed and other placements",
+            "issues": "Headlines over 27 chars, missing video URLs, ALL CAPS primary text, invalid status",
+            "details": "16 valid ads | 4 with issues at rows 17-20"
         },
-        "Meta Stories & Reels": {
+        "📲 Meta Stories & Reels - Vertical Format (20 ads - 20% with issues)": {
             "csv": "samples/meta_stories_reels_demo.csv",
             "xlsx": "samples/meta_stories_reels_demo.xlsx",
-            "description": "20 Meta Stories/Reels ads (80% valid, 20% with intentional issues)",
-            "issues": "Headlines >25 chars (vertical!), missing media/URLs, ALL CAPS"
+            "description": "Vertical 9:16 format ads for Stories and Reels placements",
+            "issues": "Headlines over 25 chars (vertical limit!), missing media/website URLs, ALL CAPS text",
+            "details": "16 valid ads | 4 with issues at rows 17-20"
         }
     }
     
-    # Group by platform
-    st.markdown("### 🔵 LinkedIn Ads")
-    for platform in ["LinkedIn Sponsored Content", "LinkedIn Video Ads"]:
-        files = demo_files[platform]
-        with st.container():
-            st.markdown(f"**{platform}**")
-            st.markdown(f"*{files['description']}*")
-            st.markdown(f"**Sample issues**: {files['issues']}")
-            
-            col1, col2 = st.columns(2)
-            
-            csv_exists = os.path.exists(files['csv'])
-            xlsx_exists = os.path.exists(files['xlsx'])
-            
-            with col1:
-                if csv_exists:
-                    with open(files['csv'], 'rb') as f:
-                        st.download_button(
-                            label="📄 Download CSV",
-                            data=f,
-                            file_name=os.path.basename(files['csv']),
-                            mime="text/csv",
-                            use_container_width=True,
-                            key=f"csv_{platform}"
-                        )
-                else:
-                    st.warning("CSV file not found")
-            
-            with col2:
-                if xlsx_exists:
-                    with open(files['xlsx'], 'rb') as f:
-                        st.download_button(
-                            label="📊 Download Excel",
-                            data=f,
-                            file_name=os.path.basename(files['xlsx']),
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                            key=f"xlsx_{platform}"
-                        )
-                else:
-                    st.warning("Excel file not found")
-            
-            st.divider()
+    # Group by platform with visual styling
+    platforms = {
+        "🔷 LinkedIn Ads": ["🔷 LinkedIn Sponsored Content (50 ads - 16% with issues)", "🎥 LinkedIn Video Ads (20 ads - 20% with issues)"],
+        "🔴 Google Ads": ["📱 Google Search Ads - RSA (50 ads - 16% with issues)", "🖼️ Google Display Ads (20 ads - 20% with issues)", "🎬 Google Video Ads - YouTube (20 ads - 20% with issues)"],
+        "🔵 Meta Ads": ["📰 Meta Feed Ads (50 ads - 20% with issues)", "📹 Meta Video Ads (20 ads - 20% with issues)", "📲 Meta Stories & Reels - Vertical Format (20 ads - 20% with issues)"]
+    }
     
-    st.markdown("### 🔴 Google Ads")
-    for platform in ["Google Search Ads (RSA)", "Google Display Ads", "Google Video Ads (YouTube)"]:
-        files = demo_files[platform]
-        with st.container():
-            st.markdown(f"**{platform}**")
-            st.markdown(f"*{files['description']}*")
-            st.markdown(f"**Sample issues**: {files['issues']}")
+    for platform_name, ad_types in platforms.items():
+        st.markdown(f"## {platform_name}")
+        
+        for ad_type in ad_types:
+            files = demo_files[ad_type]
             
-            col1, col2 = st.columns(2)
-            
-            csv_exists = os.path.exists(files['csv'])
-            xlsx_exists = os.path.exists(files['xlsx'])
-            
-            with col1:
-                if csv_exists:
-                    with open(files['csv'], 'rb') as f:
-                        st.download_button(
-                            label="📄 Download CSV",
-                            data=f,
-                            file_name=os.path.basename(files['csv']),
-                            mime="text/csv",
-                            use_container_width=True,
-                            key=f"csv_{platform}"
-                        )
-                else:
-                    st.warning("CSV file not found")
-            
-            with col2:
-                if xlsx_exists:
-                    with open(files['xlsx'], 'rb') as f:
-                        st.download_button(
-                            label="📊 Download Excel",
-                            data=f,
-                            file_name=os.path.basename(files['xlsx']),
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                            key=f"xlsx_{platform}"
-                        )
-                else:
-                    st.warning("Excel file not found")
-            
-            st.divider()
+            # Create a nice card-like container
+            with st.container():
+                st.markdown(f"### {ad_type}")
+                st.markdown(f"**📋 Description**: {files['description']}")
+                st.markdown(f"**⚠️ Sample Issues**: {files['issues']}")
+                st.markdown(f"**📊 Details**: {files['details']}")
+                
+                col1, col2, col3 = st.columns([1, 1, 2])
+                
+                csv_exists = os.path.exists(files['csv'])
+                xlsx_exists = os.path.exists(files['xlsx'])
+                
+                with col1:
+                    if csv_exists:
+                        with open(files['csv'], 'rb') as f:
+                            st.download_button(
+                                label="📄 Download CSV",
+                                data=f,
+                                file_name=os.path.basename(files['csv']),
+                                mime="text/csv",
+                                use_container_width=True,
+                                key=f"csv_{ad_type}"
+                            )
+                    else:
+                        st.warning("CSV not found")
+                
+                with col2:
+                    if xlsx_exists:
+                        with open(files['xlsx'], 'rb') as f:
+                            st.download_button(
+                                label="📊 Download Excel",
+                                data=f,
+                                file_name=os.path.basename(files['xlsx']),
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                use_container_width=True,
+                                key=f"xlsx_{ad_type}"
+                            )
+                    else:
+                        st.warning("Excel not found")
+                
+                with col3:
+                    st.markdown("")  # Spacing
+                
+                st.divider()
     
-    st.markdown("### 🔵 Meta Ads")
-    for platform in ["Meta Feed Ads", "Meta Video Ads", "Meta Stories & Reels"]:
-        files = demo_files[platform]
-        with st.container():
-            st.markdown(f"**{platform}**")
-            st.markdown(f"*{files['description']}*")
-            st.markdown(f"**Sample issues**: {files['issues']}")
-            
-            col1, col2 = st.columns(2)
-            
-            csv_exists = os.path.exists(files['csv'])
-            xlsx_exists = os.path.exists(files['xlsx'])
-            
-            with col1:
-                if csv_exists:
-                    with open(files['csv'], 'rb') as f:
-                        st.download_button(
-                            label="📄 Download CSV",
-                            data=f,
-                            file_name=os.path.basename(files['csv']),
-                            mime="text/csv",
-                            use_container_width=True,
-                            key=f"csv_{platform}"
-                        )
-                else:
-                    st.warning("CSV file not found")
-            
-            with col2:
-                if xlsx_exists:
-                    with open(files['xlsx'], 'rb') as f:
-                        st.download_button(
-                            label="📊 Download Excel",
-                            data=f,
-                            file_name=os.path.basename(files['xlsx']),
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True,
-                            key=f"xlsx_{platform}"
-                        )
-                else:
-                    st.warning("Excel file not found")
-            
-            st.divider()
-    
-    st.info("💡 **Tip**: Download a demo file, upload it in the 'Upload & Validate' tab, and see the validator in action!")
+    st.markdown("---")
+    st.success("💡 **Next Step**: After downloading, go to the **Upload & Validate** tab and upload the demo file to see validation in action!")
+    st.info("🎯 **Pro Tip**: Start with Google or Meta demos - they have the most variety of issues to explore!")
 
 # TAB 3: Quick Start
 with main_tabs[2]:
@@ -721,6 +716,7 @@ st.divider()
 st.markdown("""
 <div style='text-align: center; color: #666; padding: 20px;'>
     <p>Mojo Validator Enterprise v2.0 | Built with ❤️ for Ad Operations Teams</p>
+    <p>Supports 8 ad types: LinkedIn (2) • Google (3) • Meta (3)</p>
     <p>Reduces ad rejection rates from 35-45% to 3-5% | 95%+ validation coverage</p>
 </div>
 """, unsafe_allow_html=True)
