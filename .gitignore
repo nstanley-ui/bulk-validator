@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+build/
+dist/
+*.egg-info/
+
+# Project Specific
+.tmp/
+*.csv
+*.xlsx
+!samples/
+!test_*.csv
+
+# OS
+.DS_Store
+Thumbs.db
