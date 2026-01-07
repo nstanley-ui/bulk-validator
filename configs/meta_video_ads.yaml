@@ -1,0 +1,132 @@
+platform: Meta Video Ads
+version: "2.0"
+description: "Facebook and Instagram Video Ads (Jan 2026)"
+
+validators:
+  # Campaign Structure
+  - column: "Campaign Name"
+    required: true
+    type: string
+    max_length: 255
+    message: "Campaign name is required"
+
+  - column: "Ad Set Name"
+    required: true
+    type: string
+    max_length: 255
+    message: "Ad set name is required"
+
+  - column: "Ad Name"
+    required: true
+    type: string
+    max_length: 255
+    message: "Ad name is required"
+
+  # Status
+  - column: "Campaign Status"
+    required: true
+    values: ["ACTIVE", "PAUSED", "ARCHIVED"]
+    message: "Campaign status must be one of: ACTIVE, PAUSED, ARCHIVED"
+
+  # Video
+  - column: "Video URL"
+    required: true
+    type: url
+    regex: "^https?://.+"
+    message: "Video URL is required and must start with http:// or https://"
+
+  # Primary Text
+  - column: "Primary Text"
+    required: true
+    type: string
+    max_length: 125
+    recommended_max: 125
+    message: "Primary text is required. First 125 characters show in preview, rest behind 'See More'"
+
+  # Headline
+  - column: "Headline"
+    required: true
+    type: string
+    max_length: 27
+    warning_at: 27
+    absolute_max: 40
+    message: "Headline max 27 characters for Feed placements (40 for some placements)"
+
+  # Description
+  - column: "Description"
+    required: false
+    type: string
+    max_length: 30
+    message: "Description max 30 characters (link description)"
+
+  # URLs
+  - column: "Website URL"
+    required: true
+    type: url
+    regex: "^https?://.+"
+    message: "Website URL is required and must start with http:// or https://"
+
+  - column: "Display Link"
+    required: false
+    type: string
+    max_length: 200
+    message: "Display link max 200 characters"
+
+  # Call to Action
+  - column: "Call to Action"
+    required: false
+    values: ["LEARN_MORE", "SHOP_NOW", "SIGN_UP", "DOWNLOAD", "BOOK_NOW", "CONTACT_US", "GET_QUOTE", "APPLY_NOW", "WATCH_MORE", "PLAY_GAME", "LISTEN_NOW", "NO_BUTTON"]
+    message: "CTA must be from the approved list"
+
+  # Thumbnail
+  - column: "Thumbnail URL"
+    required: false
+    type: url
+    regex: "^https?://.+"
+    message: "Thumbnail URL must start with http:// or https://"
+
+# Auto-fix rules
+fixes:
+  - target_column: "Campaign Status"
+    rule: "map_values"
+    mapping:
+      "active": "ACTIVE"
+      "paused": "PAUSED"
+      "pause": "PAUSED"
+      "archived": "ARCHIVED"
+      "archive": "ARCHIVED"
+    auto_apply: false
+
+  - target_column: "Headline"
+    rule: "truncate"
+    max_length: 27
+    auto_apply: false
+    warning: "CRITICAL: Headline will be truncated on Facebook Feed and Instagram Feed"
+
+  - target_column: "Primary Text"
+    rule: "truncate"
+    max_length: 125
+    auto_apply: false
+    warning: "Text over 125 characters will be hidden behind 'See More' button"
+
+# Additional validation rules
+validation_rules:
+  - rule: "check_url_protocol"
+    columns: ["Video URL", "Website URL", "Thumbnail URL"]
+    message: "URLs must include http:// or https://"
+
+  - rule: "check_capitalization"
+    columns: ["Headline", "Primary Text", "Description"]
+    max_uppercase_ratio: 0.5
+    message: "Excessive capitalization may trigger ad rejection"
+
+notes:
+  - "Video format: MP4 or MOV recommended"
+  - "Video length: 1 second to 241 minutes (recommend 15 seconds for Feed)"
+  - "Aspect ratio: 4:5 (Feed), 9:16 (Stories/Reels), 1:1 (square)"
+  - "Min resolution: 720p"
+  - "Max file size: 4GB"
+  - "Video thumbnail: Auto-generated or upload custom (1200x675 recommended)"
+  - "Captions: Highly recommended for accessibility and sound-off viewing"
+  - "First 3 seconds are critical for engagement"
+  - "Shorter videos (under 15 seconds) perform better in Feed"
