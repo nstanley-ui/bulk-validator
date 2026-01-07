@@ -1,0 +1,146 @@
+platform: Google Video Ads
+version: "2.0"
+description: "YouTube Video Ads (TrueView and Bumper Ads) (Jan 2026)"
+
+validators:
+  # Campaign Structure
+  - column: "Campaign"
+    required: true
+    type: string
+    max_length: 255
+    message: "Campaign name is required"
+
+  - column: "Ad Group"
+    required: true
+    type: string
+    max_length: 255
+    message: "Ad group name is required"
+
+  - column: "Ad Name"
+    required: true
+    type: string
+    max_length: 255
+    message: "Ad name is required"
+
+  - column: "Status"
+    required: true
+    values: ["Enabled", "Paused", "Removed"]
+    message: "Status must be one of: Enabled, Paused, Removed"
+
+  # Video
+  - column: "YouTube Video"
+    required: true
+    type: url
+    regex: "^https?://(www\\.)?(youtube\\.com|youtu\\.be)/.+"
+    message: "YouTube video URL is required (must be youtube.com or youtu.be)"
+
+  # Ad Format
+  - column: "Ad Format"
+    required: false
+    values: ["In-stream", "Bumper", "Video discovery", "Out-stream", "Masthead"]
+    message: "Ad format must be from approved list"
+
+  # Headlines (for Video Discovery)
+  - column: "Headline 1"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 1 max 30 characters (for Video Discovery ads)"
+
+  - column: "Headline 2"
+    required: false
+    type: string
+    max_length: 30
+    message: "Headline 2 max 30 characters"
+
+  # Descriptions
+  - column: "Description 1"
+    required: false
+    type: string
+    max_length: 90
+    message: "Description 1 max 90 characters"
+
+  - column: "Description 2"
+    required: false
+    type: string
+    max_length: 90
+    message: "Description 2 max 90 characters"
+
+  # Call to Action
+  - column: "Call to Action"
+    required: false
+    type: string
+    max_length: 10
+    message: "Call to Action max 10 characters"
+
+  - column: "Headline"
+    required: false
+    type: string
+    max_length: 15
+    message: "CTA Headline max 15 characters"
+
+  # Companion Banner
+  - column: "Companion Banner"
+    required: false
+    type: url
+    regex: "^https?://.+"
+    message: "Companion banner must be a valid URL"
+
+  # URLs
+  - column: "Final URL"
+    required: true
+    type: url
+    max_length: 2048
+    regex: "^https?://.+"
+    message: "Final URL is required and must start with http:// or https://"
+
+  - column: "Display URL"
+    required: false
+    type: string
+    max_length: 35
+    message: "Display URL max 35 characters"
+
+# Auto-fix rules
+fixes:
+  - target_column: "Status"
+    rule: "map_values"
+    mapping:
+      "active": "Enabled"
+      "enabled": "Enabled"
+      "paused": "Paused"
+      "pause": "Paused"
+      "deleted": "Removed"
+      "removed": "Removed"
+    auto_apply: false
+
+  - target_column: "Call to Action"
+    rule: "truncate"
+    max_length: 10
+    auto_apply: false
+    warning: "Call to Action over 10 characters will be rejected"
+
+  - target_column: "Headline"
+    rule: "truncate"
+    max_length: 15
+    auto_apply: false
+    warning: "CTA Headline over 15 characters will be rejected"
+
+# Additional validation rules
+validation_rules:
+  - rule: "check_url_protocol"
+    columns: ["YouTube Video", "Final URL", "Companion Banner"]
+    message: "URLs must include http:// or https://"
+
+  - rule: "check_capitalization"
+    columns: ["Headline 1", "Headline 2", "Description 1", "Call to Action"]
+    max_uppercase_ratio: 0.5
+    message: "Excessive capitalization violates Google Ads policies"
+
+notes:
+  - "TrueView In-Stream: Skippable video ads, 12 seconds minimum"
+  - "Bumper Ads: Non-skippable, 6 seconds maximum"
+  - "Video Discovery: Appears in YouTube search results and related videos"
+  - "Video must be public or unlisted on YouTube"
+  - "Video aspect ratio: 16:9 or 4:3 recommended"
+  - "Companion banner: 300x60 pixels"
+  - "CTA appears as overlay on video"
