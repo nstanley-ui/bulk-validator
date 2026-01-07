@@ -27,10 +27,11 @@ st.markdown("""
         background-color: #1e2130;
     }
     </style>
-    """, unsafe_allow_value=True)
+    """, unsafe_allow_html=True)
 
 # Initialize Engine
 CONFIG_DIR = os.path.join(os.getcwd(), "configs")
+os.makedirs(".tmp", exist_ok=True)
 engine = ValidatorEngine(CONFIG_DIR)
 
 # Sidebar
@@ -106,3 +107,4 @@ if uploaded_file:
         st.error(f"Error during validation: {str(e)}")
 else:
     st.write("Please upload a file to begin.")
+
