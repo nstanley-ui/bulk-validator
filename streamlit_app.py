@@ -28,10 +28,13 @@ def save_memory(new_rules):
 # --- 2. PLATFORM DETECTION ---
 def detect_platform(df):
     columns = set(df.columns)
-    if {'Ad Headline', 'Ad Description', 'Landing Page URL'}.issubset(columns):
-        return "LinkedIn Ads"
-    elif {'Title', 'Body', 'Link URL'}.issubset(columns):
+    # Check for Meta (Facebook/Instagram)
+    if {'Title', 'Body', 'Link URL'}.issubset(columns):
         return "Meta Ads (Facebook/Instagram)"
+    # Check for LinkedIn
+    elif {'Ad Headline', 'Ad Description', 'Landing Page URL'}.issubset(columns):
+        return "LinkedIn Ads"
+    # Check for Google
     elif {'Headline', 'Description', 'Final URL'}.issubset(columns):
         return "Google Ads"
     else:
@@ -43,6 +46,9 @@ def check_policy_violations(text, platform):
     Scans text for specific keywords/patterns that cause rejection.
     Returns: (Proposed Fix, Reason) or (None, None)
     """
+    if not isinstance(text, str):
+        return None, None
+        
     text_lower = text.lower()
     
     # --- GOOGLE ADS RESTRICTIONS ---
@@ -55,7 +61,7 @@ def check_policy_violations(text, platform):
         if re.search(r'\b(botox|prescription|drugs)\b', text_lower):
             return text.replace("Botox", "Treatments").replace("Prescription", "Medication"), "Restricted Medical Term"
         
-        # Superlatives (Need 3rd party verification usually)
+        # Superlatives
         if "best" in text_lower or "#1" in text:
             return text.replace("Best", "Top").replace("#1", "Leading"), "Unsubstantiated Superlative"
             
@@ -66,11 +72,10 @@ def check_policy_violations(text, platform):
     # --- META (FACEBOOK/IG) RESTRICTIONS ---
     elif platform == "Meta Ads (Facebook/Instagram)":
         # Personal Attributes (MAJOR Rejection trigger)
-        # Meta forbids "asserting" anything about the user. e.g. "Are you tired?"
         if re.search(r'\b(are you|do you have|do you suffer)\b', text_lower):
-            return text.replace("Are you", "For those").replace("Do you have", "Help for"), "Personal Attribute Policy (High Rejection Risk)"
+            return text.replace("Are you", "For those").replace("Do you have", "Help for"), "Personal Attribute Policy (Risk)"
         
-        # Get Rich Quick
+        # MLM / Get Rich
         if re.search(r'\b(make money|get rich|work from home)\b', text_lower):
             return "Start your career today", "Misleading/MLM Policy"
 
@@ -80,9 +85,9 @@ def check_policy_violations(text, platform):
         if re.search(r'\b(too old|too young)\b', text_lower):
             return text, "Potential Discrimination Policy"
         
-        # Clickbait
+        # Sensationalism
         if re.search(r'\b(shocking|you won\'t believe)\b', text_lower):
-            return "Industry Insights", "Clickbait Policy"
+            return "Industry Insights", "Sensationalism Policy"
 
     return None, None
 
@@ -139,6 +144,12 @@ def analyze_row(row, index, platform, memory):
             # Length
             elif len(text) > 70:
                 issues.append({'col': 'Ad Headline', 'original': text, 'proposed': text[:70], 'reason': f'Truncation Risk ({len(text)}/70)'})
+                
+        # Image Check (Placeholder presence)
+        if 'Image File Name' in row:
+             img = str(row['Image File Name'])
+             if pd.isna(img) or img == 'nan' or img == '':
+                  issues.append({'col': 'Image File Name', 'original': '', 'proposed': 'creative_placeholder.jpg', 'reason': 'Missing Image File'})
 
     # 3. Meta Ads
     elif platform == "Meta Ads (Facebook/Instagram)":
@@ -159,10 +170,16 @@ def analyze_row(row, index, platform, memory):
             fix, reason = check_policy_violations(text, platform)
             if fix:
                 issues.append({'col': 'Body', 'original': text, 'proposed': fix, 'reason': f"Policy: {reason}"})
+                
+        # Image Check
+        if 'Image' in row:
+             img = str(row['Image'])
+             if pd.isna(img) or img == 'nan' or img == '':
+                  issues.append({'col': 'Image', 'original': '', 'proposed': 'creative_placeholder.jpg', 'reason': 'Missing Image File'})
 
     return issues
 
-# --- 5. DEMO GENERATOR (With Rejection Flags) ---
+# --- 5. DEMO GENERATOR (With Image Placeholders) ---
 def generate_demo(platform):
     output = BytesIO()
     data = []
@@ -173,9 +190,9 @@ def generate_demo(platform):
         for i in range(50):
             row = {'Headline': f"Valid Headline {i}", 'Description': "Desc", 'Final URL': "https://site.com", 'Max CPC': None}
             
-            # Inject Specific Errors
-            if i == 0: row['Headline'] = "Buy Bitcoin Now" # Crypto Flag
-            if i == 1: row['Headline'] = "Get Best Botox" # Medical Flag
+            # Inject Specific Errors (Professional Context)
+            if i == 0: row['Headline'] = "Invest in Bitcoin" # Crypto Flag
+            if i == 1: row['Headline'] = "Prescription Meds" # Medical Flag
             if i == 2: row['Headline'] = "THIS IS SHOUTING" # Caps Flag
             if i == 3: row['Headline'] = "Headline Too Long For Google Ads" # Length Flag
             if i == 4: row['Max CPC'] = 1.50 # Bid Flag
@@ -184,18 +201,32 @@ def generate_demo(platform):
             
     elif platform == 'linkedin':
         for i in range(50):
-            row = {'Campaign Name': 'Q1', 'Ad Headline': f"Professional Update {i}", 'Ad Description': "Desc", 'Landing Page URL': "https://li.com"}
+            # Added "Image File Name" column
+            row = {
+                'Campaign Name': 'Q1 B2B', 
+                'Ad Headline': f"Professional Update {i}", 
+                'Ad Description': "Desc", 
+                'Landing Page URL': "https://li.com",
+                'Image File Name': f"creative_{i:03d}.jpg" 
+            }
             
-            if i == 0: row['Ad Headline'] = "You won't believe this shocking trick" # Clickbait Flag
+            if i == 0: row['Ad Headline'] = "You won't believe this shocking trick" # Policy Flag
             if i == 1: row['Ad Headline'] = "This headline is way too long for LinkedIn mobile devices and will cut off" # Length Flag
             
             data.append(row)
 
     elif platform == 'meta':
         for i in range(50):
-            row = {'Campaign Name': 'Social', 'Title': f"Fresh Look {i}", 'Body': "Great vibes only.", 'Link URL': "https://meta.com"}
+            # Added "Image" column
+            row = {
+                'Campaign Name': 'Social Q1', 
+                'Title': f"Fresh Look {i}", 
+                'Body': "Great vibes only.", 
+                'Link URL': "https://meta.com",
+                'Image': f"social_post_{i:03d}.jpg"
+            }
             
-            if i == 0: row['Body'] = "Are you tired of being overweight?" # Personal Attribute Flag (High Risk)
+            if i == 0: row['Body'] = "Are you tired of being overweight?" # Personal Attribute Flag
             if i == 1: row['Title'] = "Work from home get rich" # MLM Flag
             if i == 2: row['Title'] = "This Title Is Too Long For Meta Feed" # Length Flag
             
@@ -222,11 +253,11 @@ if 'platform' not in st.session_state:
     st.session_state.platform = None
 
 # DEMO DOWNLOADS
-with st.expander("📥 Get Demo Files (Includes Policy Violations)", expanded=False):
+with st.expander("📥 Get Demo Files (50 Rows)", expanded=False):
     c1, c2, c3 = st.columns(3)
-    c1.download_button("Google Demo (Crypto/Botox)", generate_demo('google'), "demo_google_policy.xlsx")
-    c2.download_button("LinkedIn Demo (Clickbait)", generate_demo('linkedin'), "demo_linkedin_policy.xlsx")
-    c3.download_button("Meta Demo (Personal Attributes)", generate_demo('meta'), "demo_meta_policy.xlsx")
+    c1.download_button("Google Demo (Test Data)", generate_demo('google'), "demo_google_test_data.xlsx")
+    c2.download_button("LinkedIn Demo (Test Data)", generate_demo('linkedin'), "demo_linkedin_test_data.xlsx")
+    c3.download_button("Meta Demo (Test Data)", generate_demo('meta'), "demo_meta_test_data.xlsx")
 
 st.divider()
 
@@ -292,18 +323,25 @@ if st.session_state.df_data is not None:
     st.divider()
     with st.expander(f"✅ Valid Creatives ({len(clean_rows_indices)} hidden)", expanded=False):
         if clean_rows_indices:
+            # Clean columns configuration
+            config = {
+                "Final URL": st.column_config.TextColumn("Final URL", width="medium"),
+            }
+            # Add platform specific text column resizing
+            if platform == "LinkedIn Ads":
+                config["Ad Headline"] = st.column_config.TextColumn("Ad Headline", width="medium")
+                config["Ad Description"] = st.column_config.TextColumn("Ad Description", width="large")
+            elif platform == "Meta Ads (Facebook/Instagram)":
+                config["Title"] = st.column_config.TextColumn("Title", width="medium")
+                config["Body"] = st.column_config.TextColumn("Body", width="large")
+            elif platform == "Google Ads":
+                config["Headline"] = st.column_config.TextColumn("Headline", width="medium")
+                config["Description"] = st.column_config.TextColumn("Description", width="large")
+
             st.dataframe(
                 df.iloc[clean_rows_indices],
                 use_container_width=True,
-                column_config={
-                    "Ad Headline": st.column_config.TextColumn("Ad Headline", width="medium"),
-                    "Ad Description": st.column_config.TextColumn("Ad Description", width="large"),
-                    "Headline": st.column_config.TextColumn("Headline", width="medium"),
-                    "Description": st.column_config.TextColumn("Description", width="large"),
-                    "Title": st.column_config.TextColumn("Title", width="medium"),
-                    "Body": st.column_config.TextColumn("Body", width="large"),
-                    "Final URL": st.column_config.TextColumn("Final URL", width="medium"),
-                }
+                column_config=config
             )
         else:
             st.write("No valid rows yet.")
