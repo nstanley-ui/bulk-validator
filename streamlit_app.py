@@ -154,8 +154,8 @@ def analyze_row(row, index, platform, memory, filename, ignored_set, link_check)
                 issues.append({
                     'col': 'Ad Group ID', 
                     'orig': '(Empty)', 
-                    'prop': '(Leave Empty for New)', 
-                    'reason': '⚠️ Reminder: Fill this ID if updating existing ads. Leave blank for new ads.'
+                    'prop': '', 
+                    'reason': '⚠️ Reminder: Leave blank for new ads.'
                 })
         else:
             if not is_ignored('Ad Group ID'):
@@ -163,7 +163,7 @@ def analyze_row(row, index, platform, memory, filename, ignored_set, link_check)
                     'col': 'Ad Group ID',
                     'orig': '(Missing Column)',
                     'prop': '',
-                    'reason': '❌ Column Missing: Ad Group ID is required for Google.'
+                    'reason': '❌ Missing Column: Ad Group ID is required.'
                 })
     
     # 2. SPECIAL CHECK: CAMPAIGN GROUP (LinkedIn Only)
@@ -173,14 +173,14 @@ def analyze_row(row, index, platform, memory, filename, ignored_set, link_check)
                 'col': 'Campaign Group',
                 'orig': '(Missing Column)',
                 'prop': 'Default Campaign Group',
-                'reason': '❌ LinkedIn requires a Campaign Group column.'
+                'reason': '❌ Missing Column: Campaign Group is required.'
             })
         if 'Ad Status' not in row and not is_ignored('Ad Status'):
              issues.append({
                 'col': 'Ad Status',
                 'orig': '(Missing Column)',
                 'prop': 'ACTIVE',
-                'reason': '❌ LinkedIn requires Ad Status (ACTIVE/PAUSED).'
+                'reason': '❌ Missing Column: Ad Status is required.'
             })
 
     # 3. URL CHECK
@@ -215,14 +215,13 @@ def to_csv(df):
 def generate_demo(platform):
     data = []
     if platform == 'google':
-        data = [{'Ad Group ID': '', 'Headline': 'Bitcoin Invest', 'Final URL': 'https://httpstat.us/404', 'Max CPC': 1.50}] * 5 + \
-               [{'Ad Group ID': '123456789', 'Headline': 'Good Ad', 'Final URL': 'https://google.com', 'Max CPC': None}] * 45
+        # Removed Ad Group ID to trigger the "Missing Column" error for testing
+        data = [{'Headline': 'Bitcoin Invest', 'Final URL': 'https://httpstat.us/404', 'Max CPC': 1.50}] * 5 + \
+               [{'Headline': 'Good Ad', 'Final URL': 'https://google.com', 'Max CPC': None}] * 45
     elif platform == 'linkedin':
-        # UPDATED LINKEDIN STRUCTURE
+        # Missing Campaign Group and Ad Status to trigger error
         common = {
-            'Campaign Group': 'Default Campaign Group',
             'Campaign Name': 'Q1_Prospecting_2024',
-            'Ad Status': 'ACTIVE',
             'Ad Format': 'SINGLE_IMAGE'
         }
         for i in range(5):
@@ -247,7 +246,7 @@ if 'edits' not in st.session_state: st.session_state.edits = {}
 # --- SIDEBAR ---
 with st.sidebar:
     st.markdown("### 🛡️ Mojo Validator")
-    st.caption("Enterprise Edition v2.4 (LinkedIn Fix)")
+    st.caption("Enterprise Edition v3.0")
     st.markdown("---")
     
     st.subheader("Configuration")
@@ -273,22 +272,29 @@ with st.sidebar:
 st.title("Compliance & Creative Validation")
 st.markdown("""
 <div style='background-color:#EBF8FF; padding:15px; border-radius:8px; border:1px solid #BEE3F8; color:#2C5282; margin-bottom:25px;'>
-    <strong>Instructions:</strong> Upload your bulk sheets below. The system will automatically detect the platform (Google, Meta, LinkedIn), 
+    <strong>Instructions:</strong> Upload your bulk sheets below (Excel or CSV). The system will automatically detect the platform (Google, Meta, LinkedIn), 
     scan for policy violations, check for dead links, and allow you to approve AI-suggested fixes.
 </div>
 """, unsafe_allow_html=True)
 
 # UPLOAD ZONE
-uploaded_files = st.file_uploader("", type=['xlsx'], accept_multiple_files=True, label_visibility="collapsed")
+uploaded_files = st.file_uploader("", type=['xlsx', 'csv'], accept_multiple_files=True, label_visibility="collapsed")
 
 if not uploaded_files and not st.session_state.file_cache:
-    st.info("👆 Please upload an Excel file to begin.")
+    st.info("👆 Please upload a file (Excel or CSV) to begin.")
 
 if uploaded_files:
     for f in uploaded_files:
         if f.name not in st.session_state.file_cache:
-            df = pd.read_excel(f)
-            st.session_state.file_cache[f.name] = {'df': df, 'plat': detect_platform(df)}
+            # Handle both Excel and CSV
+            try:
+                if f.name.endswith('.csv'):
+                    df = pd.read_csv(f)
+                else:
+                    df = pd.read_excel(f)
+                st.session_state.file_cache[f.name] = {'df': df, 'plat': detect_platform(df)}
+            except Exception as e:
+                st.error(f"Error reading {f.name}: {e}")
 
 # MAIN LOOP
 if st.session_state.file_cache:
@@ -370,7 +376,7 @@ if st.session_state.file_cache:
                                 for i in issues:
                                     val = updates.get(i['col'], i['prop'])
                                     
-                                    # Handle "Missing Column" case
+                                    # Handle "Missing Column" case - NOW WORKS FOR ALL PLATFORMS
                                     if 'Missing Column' in i['reason']:
                                         st.session_state.file_cache[fname]['df'][i['col']] = i['prop'] # Create col globally
                                     else:
@@ -400,7 +406,9 @@ if st.session_state.file_cache:
             col_fmt, col_clean, col_wip = st.columns([1, 2, 2])
             
             with col_fmt:
-                fmt = st.selectbox("File Format", ["Excel (.xlsx)", "CSV (.csv)"], key=f"fmt_{fname}")
+                # Default to CSV for all, but let them choose
+                default_idx = 1 # CSV
+                fmt = st.selectbox("File Format", ["Excel (.xlsx)", "CSV (.csv)"], index=default_idx, key=f"fmt_{fname}")
                 
             final_df = st.session_state.file_cache[fname]['df']
             mime = "text/csv" if "CSV" in fmt else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
