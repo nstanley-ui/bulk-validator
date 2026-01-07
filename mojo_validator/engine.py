@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, Dict, Any
 from .models import Issue, ValidationResult, SummaryStats
 from .config_loader import ConfigLoader
 from .validation_utils import ValidationUtils, ImageVideoValidator
+from .pattern_detector import detect_pattern_mismatches
 import re
 
 
@@ -45,6 +46,23 @@ class ValidatorEngine:
             # Apply Fixes to verified_df (only if auto_fix is True)
             if auto_fix:
                 self._apply_fixes(idx, verified_df, row_issues, config)
+        
+        # Pattern Mismatch Detection (high confidence data entry errors)
+        pattern_issues = detect_pattern_mismatches(df, platform)
+        
+        # Convert pattern issues to Issue objects
+        for p_issue in pattern_issues:
+            issue_id = f"pattern_{p_issue['row_idx']}_{p_issue['column']}"
+            issue = Issue(
+                issue_id=issue_id,
+                row_idx=p_issue['row_idx'],
+                column=p_issue['column'],
+                severity=p_issue['severity'],
+                message=f"🔍 PATTERN MISMATCH (Confidence: {int(p_issue['confidence']*100)}%): {p_issue['message']}",
+                suggested_fix=p_issue['suggestion'],
+                original_value=p_issue['current_value']
+            )
+            issues.append(issue)
 
         # Generate Summary
         summary = self._generate_summary(df, issues)
