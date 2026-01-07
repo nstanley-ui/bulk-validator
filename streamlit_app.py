@@ -8,501 +8,230 @@ from pathlib import Path
 import pandas as pd
 from datetime import datetime
 import io
+import traceback
 
-# Page configuration
-st.set_page_config(
-    page_title="Google Ads Bulk Creative Validator",
-    page_icon="🎨",
-    layout="wide"
-)
+# --- Page Config ---
+st.set_page_config(page_title="Minimal Creative Validator", page_icon="🎨", layout="wide")
 
-# Custom CSS
+# --- CSS ---
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 3rem;
-        font-weight: bold;
-        text-align: center;
-        margin-bottom: 1rem;
-        background: linear-gradient(90deg, #4285f4, #34a853, #fbbc05, #ea4335);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    .stProgress > div > div > div > div {
-        background-color: #4285f4;
-    }
+    .main-header { font-size: 2.5rem; font-weight: bold; color: #4285f4; margin-bottom: 1rem; }
+    .stProgress > div > div > div > div { background-color: #34a853; }
 </style>
 """, unsafe_allow_html=True)
 
-# Title
-st.markdown('<h1 class="main-header">🎨 Google Ads Bulk Creative Validator</h1>', unsafe_allow_html=True)
-st.markdown("### Upload a ZIP with multiple creatives - Get instant validation feedback for all of them!")
+st.markdown('<h1 class="main-header">🎨 Minimal Creative Validator</h1>', unsafe_allow_html=True)
 
-# Sidebar for credentials
+# --- Sidebar Credentials ---
 with st.sidebar:
     st.header("🔐 API Credentials")
-    
     use_secrets = st.checkbox("Use Streamlit Secrets", value=True)
     
     if use_secrets:
         try:
-            developer_token = st.secrets["google_ads"]["developer_token"]
-            client_id = st.secrets["google_ads"]["client_id"]
-            client_secret = st.secrets["google_ads"]["client_secret"]
-            refresh_token = st.secrets["google_ads"]["refresh_token"]
-            st.success("✅ Using secrets from Streamlit Cloud")
-        except Exception as e:
-            st.error("❌ Secrets not configured. Switch to manual entry.")
-            use_secrets = False
-    
-    if not use_secrets:
+            secrets = st.secrets["google_ads"]
+            developer_token = secrets["developer_token"]
+            client_id = secrets["client_id"]
+            client_secret = secrets["client_secret"]
+            refresh_token = secrets["refresh_token"]
+            st.success("✅ Secrets Loaded")
+        except:
+            st.error("❌ Secrets not found")
+    else:
         developer_token = st.text_input("Developer Token", type="password")
         client_id = st.text_input("Client ID")
         client_secret = st.text_input("Client Secret", type="password")
         refresh_token = st.text_input("Refresh Token", type="password")
-    
-    st.markdown("---")
-    st.markdown("### 📚 Resources")
-    st.markdown("- [Get API Credentials](https://developers.google.com/google-ads/api/docs/first-call/overview)")
-    st.markdown("- [GitHub Repo](https://github.com/nstanley-ui/google_ads_api_checker)")
 
+# --- Functions ---
 
-def initialize_client(developer_token, client_id, client_secret, refresh_token, login_customer_id):
-    """Initialize Google Ads API client"""
+def initialize_client(dev_token, c_id, c_secret, r_token, login_id):
     try:
-        credentials = {
-            "developer_token": developer_token,
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "refresh_token": refresh_token,
-            "login_customer_id": login_customer_id.replace("-", ""),
+        creds = {
+            "developer_token": dev_token,
+            "client_id": c_id,
+            "client_secret": c_secret,
+            "refresh_token": r_token,
+            "login_customer_id": login_id.replace("-", ""),
             "use_proto_plus": True
         }
-        client = GoogleAdsClient.load_from_dict(credentials)
-        return client, None
+        return GoogleAdsClient.load_from_dict(creds), None
     except Exception as e:
         return None, str(e)
 
-
 def find_or_create_ad_group(client, customer_id, campaign_id, ad_group_name, ad_group_type_enum):
-    """Find existing ad group or create a new one with specific type"""
+    """
+    Minimal logic: Finds existing ad group OR creates one WITHOUT setting bids.
+    This prevents conflicts with Target CPA/Smart Campaigns.
+    """
     ga_service = client.get_service("GoogleAdsService")
     
+    # 1. Try to find existing
     query = f"""
-        SELECT 
-            ad_group.id, 
-            ad_group.name, 
-            ad_group.resource_name,
-            ad_group.type
-        FROM ad_group
-        WHERE campaign.id = {campaign_id}
-          AND ad_group.name = '{ad_group_name}'
+        SELECT ad_group.id, ad_group.resource_name 
+        FROM ad_group 
+        WHERE campaign.id = {campaign_id} AND ad_group.name = '{ad_group_name}' 
         LIMIT 1
     """
-    
     try:
         response = ga_service.search(customer_id=customer_id, query=query)
-        
         for row in response:
-            return row.ad_group.resource_name, row.ad_group.id, None
-        
-        # Create new ad group
+            return row.ad_group.resource_name, None 
+
+        # 2. If not found, Create New (Minimal Settings)
         ad_group_service = client.get_service("AdGroupService")
         campaign_service = client.get_service("CampaignService")
-        
-        ad_group_operation = client.get_type("AdGroupOperation")
-        ad_group = ad_group_operation.create
+        operation = client.get_type("AdGroupOperation")
+        ad_group = operation.create
         
         ad_group.name = ad_group_name
         ad_group.campaign = campaign_service.campaign_path(customer_id, campaign_id)
         ad_group.status = client.enums.AdGroupStatusEnum.ENABLED
         
-        # SET THE SELECTED TYPE HERE
+        # Set Type from Dropdown (Necessary for creation)
         try:
-            type_enum_val = getattr(client.enums.AdGroupTypeEnum, ad_group_type_enum)
-            ad_group.type_ = type_enum_val
-        except AttributeError:
-            # Fallback
+            ad_group.type_ = getattr(client.enums.AdGroupTypeEnum, ad_group_type_enum)
+        except:
             ad_group.type_ = client.enums.AdGroupTypeEnum.DISPLAY_STANDARD
 
-        # --- IMPORTANT FIX ---
-        # The line 'ad_group.cpc_bid_micros = 1000000' has been REMOVED.
-        # This allows the Ad Group to inherit the Campaign's strategy (e.g. Target CPA).
-        
-        response = ad_group_service.mutate_ad_groups(
-            customer_id=customer_id,
-            operations=[ad_group_operation]
-        )
-        
-        ad_group_resource_name = response.results[0].resource_name
-        ad_group_id = ad_group_resource_name.split('/')[-1]
-        
-        return ad_group_resource_name, ad_group_id, None
+        # NOTE: No Bid Setting here! (Safe for Target CPA)
+
+        response = ad_group_service.mutate_ad_groups(customer_id=customer_id, operations=[operation])
+        return response.results[0].resource_name, None
         
     except GoogleAdsException as ex:
-        error_msg = "\n".join([f"- {error.message}" for error in ex.failure.errors])
-        return None, None, error_msg
+        return None, "\n".join([e.message for e in ex.failure.errors])
 
-
-def upload_image_asset(client, customer_id, image_data, image_name):
-    """Upload image to Google Ads"""
+def upload_image(client, customer_id, image_data, image_name):
     asset_service = client.get_service("AssetService")
-    
     try:
-        asset_operation = client.get_type("AssetOperation")
-        asset = asset_operation.create
+        operation = client.get_type("AssetOperation")
+        asset = operation.create
         asset.type_ = client.enums.AssetTypeEnum.IMAGE
         asset.image_asset.data = image_data
-        asset.name = image_name
+        asset.name = f"Validation_{image_name}_{datetime.now().strftime('%M%S')}" # Unique name
         
-        response = asset_service.mutate_assets(
-            customer_id=customer_id,
-            operations=[asset_operation]
-        )
-        
-        asset_resource_name = response.results[0].resource_name
-        asset_id = asset_resource_name.split('/')[-1]
-        
-        return asset_resource_name, asset_id, None
-        
+        response = asset_service.mutate_assets(customer_id=customer_id, operations=[operation])
+        return response.results[0].resource_name, None
     except GoogleAdsException as ex:
-        error_msg = "\n".join([error.message for error in ex.failure.errors])
-        return None, None, error_msg
+        return None, "\n".join([e.message for e in ex.failure.errors])
 
-
-def create_paused_ad(client, customer_id, ad_group_resource_name, image_asset_resource_name,
-                      creative_name, final_url):
-    """Create a paused responsive display ad"""
-    ad_group_ad_service = client.get_service("AdGroupAdService")
-    
+def create_paused_ad(client, customer_id, ad_group_rn, asset_rn, final_url):
+    """
+    Creates a basic Responsive Display Ad to trigger validation.
+    Status is PAUSED so it never spends money.
+    """
+    ad_service = client.get_service("AdGroupAdService")
     try:
-        ad_group_ad_operation = client.get_type("AdGroupAdOperation")
-        ad_group_ad = ad_group_ad_operation.create
-        ad_group_ad.ad_group = ad_group_resource_name
-        ad_group_ad.status = client.enums.AdGroupAdStatusEnum.PAUSED
+        op = client.get_type("AdGroupAdOperation")
+        op.create.ad_group = ad_group_rn
+        op.create.status = client.enums.AdGroupAdStatusEnum.PAUSED
         
-        ad = ad_group_ad.ad
+        ad = op.create.ad
         ad.final_urls.append(final_url)
         
-        # This structure is specific to DISPLAY ads.
-        # If user selects a Video Ad Group type, this part will error out.
-        responsive_display_ad = ad.responsive_display_ad
+        # RDA Essentials
+        rda = ad.responsive_display_ad
+        rda.business_name = "Validator"
         
-        # Add headlines
-        for i in range(1, 4):
-            ad_text_asset = client.get_type("AdTextAsset")
-            ad_text_asset.text = f"{creative_name} - Headline {i}"
-            responsive_display_ad.headlines.append(ad_text_asset)
+        # Minimal Text Assets (Required by Google)
+        headline = client.get_type("AdTextAsset")
+        headline.text = "Validation Test Ad"
+        rda.headlines.append(headline)
         
-        # Add descriptions
-        for i in range(1, 3):
-            ad_text_asset = client.get_type("AdTextAsset")
-            ad_text_asset.text = f"Creative validation test for {creative_name}"
-            responsive_display_ad.descriptions.append(ad_text_asset)
+        desc = client.get_type("AdTextAsset")
+        desc.text = "This is a creative validation test."
+        rda.descriptions.append(desc)
         
-        responsive_display_ad.business_name = "Test Business"
+        # Attach the Image
+        img_asset = client.get_type("AdImageAsset")
+        img_asset.asset = asset_rn
+        rda.marketing_images.append(img_asset)
         
-        # Add image
-        marketing_image = client.get_type("AdImageAsset")
-        marketing_image.asset = image_asset_resource_name
-        responsive_display_ad.marketing_images.append(marketing_image)
-        
-        response = ad_group_ad_service.mutate_ad_group_ads(
-            customer_id=customer_id,
-            operations=[ad_group_ad_operation]
-        )
-        
-        ad_resource_name = response.results[0].resource_name
-        return ad_resource_name, None
-        
+        response = ad_service.mutate_ad_group_ads(customer_id=customer_id, operations=[op])
+        return response.results[0].resource_name, None
     except GoogleAdsException as ex:
-        error_msg = "\n".join([error.message for error in ex.failure.errors])
-        return None, error_msg
+        return None, "\n".join([e.message for e in ex.failure.errors])
 
-
-def extract_images_from_zip(zip_file):
-    """Extract all images from uploaded ZIP file"""
+def get_images(zip_file):
     images = []
-    valid_extensions = {'.jpg', '.jpeg', '.png', '.gif'}
-    
-    try:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
-            
-            for root, dirs, files in os.walk(temp_dir):
-                for file in files:
-                    file_path = Path(root) / file
-                    if file_path.suffix.lower() in valid_extensions:
-                        with open(file_path, 'rb') as f:
-                            images.append({
-                                'name': file,
-                                'data': f.read(),
-                                'size': os.path.getsize(file_path)
-                            })
-    except Exception as e:
-        st.error(f"Error extracting ZIP: {str(e)}")
-        return []
-    
+    with tempfile.TemporaryDirectory() as temp:
+        with zipfile.ZipFile(zip_file, 'r') as z:
+            z.extractall(temp)
+        for r, d, f in os.walk(temp):
+            for file in f:
+                if file.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
+                    with open(Path(r)/file, 'rb') as img:
+                        images.append({'name': file, 'data': img.read()})
     return images
 
+# --- UI Layout ---
 
-# --- Mapping User Names to API Enum Names ---
-AD_GROUP_TYPES = {
+col1, col2 = st.columns(2)
+
+# Ad Group Types
+AD_TYPES = {
     "Display": "DISPLAY_STANDARD",
-    "Display engagement": "DISPLAY_ENGAGEMENT_ADS",
-    "Standard (Search)": "SEARCH_STANDARD",
-    "Dynamic (Search)": "SEARCH_DYNAMIC_ADS",
-    "Shopping": "SHOPPING_PRODUCT_ADS",
-    "Shopping – Showcase": "SHOPPING_SHOWCASE_ADS",
-    "Smart Shopping - product": "SHOPPING_SMART_ADS", 
-    "Hotels - Booking link": "HOTEL_ADS",
-    "Video - Skippable in-stream": "VIDEO_TRUE_VIEW_IN_STREAM",
-    "Video - Non-skippable in-stream": "VIDEO_NON_SKIPPABLE_IN_STREAM",
-    "Video - Bumper": "VIDEO_BUMPER",
-    "Video - In-feed (Discovery)": "VIDEO_TRUE_VIEW_DISCOVERY",
-    "Video - Outstream": "VIDEO_OUT_STREAM",
-    "Video - Responsive": "VIDEO_RESPONSIVE",
-    "Efficient reach": "VIDEO_EFFICIENT_REACH",
+    "Display Smart": "DISPLAY_SMART_ADS", # Try this if 'Display' fails
+    "Video Responsive": "VIDEO_RESPONSIVE"
 }
 
-# Main form
-st.markdown("---")
-
-col1, col2 = st.columns([1, 1])
-
 with col1:
-    st.subheader("📋 Campaign Details")
-    # Updated default ID to your correct account (from screenshot)
-    customer_id = st.text_input("Customer ID", value="4368944560", help="Your Google Ads Customer ID (no hyphens)")
-    campaign_id = st.text_input("Campaign ID", value="23438621203", help="Campaign where ads will be created")
-    ad_group_name = st.text_input("Ad Group Name", value="Test_Bin", help="Ad group for validation")
-    
-    # NEW DROPDOWN
-    selected_type_label = st.selectbox(
-        "Ad Group Type", 
-        options=list(AD_GROUP_TYPES.keys()),
-        index=0,  # Defaults to "Display"
-        help="Select 'Display' for image validation. Other types may fail if image assets are not compatible."
-    )
-    # Get the technical name
-    ad_group_type_enum = AD_GROUP_TYPES[selected_type_label]
-
-    final_url = st.text_input("Final URL", value="https://www.example.com", help="Landing page URL for all ads")
+    st.subheader("1. Configuration")
+    cust_id = st.text_input("Customer ID", value="4368944560")
+    camp_id = st.text_input("Campaign ID", value="23438621203")
+    ag_name = st.text_input("Ad Group Name", value="Test_Bin", help="Use an existing ad group if possible!")
+    ag_type = st.selectbox("Ad Group Type", options=list(AD_TYPES.keys()))
+    url = st.text_input("Final URL", value="https://example.com")
 
 with col2:
-    st.subheader("📦 Upload ZIP File")
-    st.info("📁 ZIP should contain: image files (.jpg, .png, .gif)")
-    uploaded_zip = st.file_uploader("Upload ZIP with Creatives", type=["zip"])
-    
-    if uploaded_zip:
-        images = extract_images_from_zip(uploaded_zip)
-        st.success(f"✅ Found {len(images)} images in ZIP")
-        
-        # Show preview
-        with st.expander("🔍 Preview Images"):
-            cols = st.columns(4)
-            for idx, img in enumerate(images[:8]):  # Show first 8
-                with cols[idx % 4]:
-                    st.image(io.BytesIO(img['data']), caption=img['name'], width=150)
-            if len(images) > 8:
-                st.info(f"+ {len(images) - 8} more images...")
+    st.subheader("2. Upload")
+    uploaded_zip = st.file_uploader("Upload ZIP", type="zip")
 
-st.markdown("---")
-
-# Validate button
-if st.button("🚀 Validate All Creatives", type="primary", use_container_width=True):
-    
-    # Validation
-    errors = []
-    
-    if not use_secrets and not all([developer_token, client_id, client_secret, refresh_token]):
-        errors.append("❌ Please provide all API credentials")
-    
+if st.button("🚀 Run Validation", type="primary"):
     if not uploaded_zip:
-        errors.append("❌ Please upload a ZIP file with creatives")
+        st.error("Please upload a ZIP file.")
+        st.stop()
+        
+    images = get_images(uploaded_zip)
+    st.info(f"Processing {len(images)} images...")
     
-    if not customer_id or not campaign_id:
-        errors.append("❌ Please provide Customer ID and Campaign ID")
+    # Init Client
+    clean_cid = cust_id.replace("-", "")
+    client, err = initialize_client(developer_token, client_id, client_secret, refresh_token, clean_cid)
     
-    if errors:
-        for error in errors:
-            st.error(error)
-    else:
-        # Extract images
-        images = extract_images_from_zip(uploaded_zip)
+    if err:
+        st.error(f"Auth Failed: {err}")
+        st.stop()
         
-        if not images:
-            st.error("❌ No valid images found in ZIP file")
-            st.stop()
+    # Get Ad Group
+    ag_rn, err = find_or_create_ad_group(client, clean_cid, camp_id, ag_name, AD_TYPES[ag_type])
+    if err:
+        st.error(f"Ad Group Error: {err}")
+        st.stop()
         
-        # Progress tracking
-        progress_bar = st.progress(0)
-        status_text = st.empty()
+    # Process Images
+    results = []
+    progress = st.progress(0)
+    
+    for i, img in enumerate(images):
+        res = {'Name': img['name'], 'Status': 'Pending', 'Details': ''}
         
-        # Results tracking
-        results = []
-        
-        try:
-            # Step 1: Initialize client
-            status_text.text("🔄 Connecting to Google Ads API...")
-            progress_bar.progress(5)
-            
-            if use_secrets:
-                client, error = initialize_client(
-                    st.secrets["google_ads"]["developer_token"],
-                    st.secrets["google_ads"]["client_id"],
-                    st.secrets["google_ads"]["client_secret"],
-                    st.secrets["google_ads"]["refresh_token"],
-                    customer_id
-                )
+        # Upload Asset
+        asset_rn, err = upload_image(client, clean_cid, img['data'], img['name'])
+        if err:
+            res.update({'Status': '❌ Upload Fail', 'Details': err})
+        else:
+            # Create Test Ad
+            ad_rn, err = create_paused_ad(client, clean_cid, ag_rn, asset_rn, url)
+            if err:
+                 res.update({'Status': '❌ Rejected', 'Details': err})
             else:
-                client, error = initialize_client(
-                    developer_token, client_id, client_secret, refresh_token, customer_id
-                )
-            
-            if error:
-                st.error(f"❌ Authentication failed: {error}")
-                st.stop()
-            
-            progress_bar.progress(10)
-            
-            # Step 2: Find/Create Ad Group
-            status_text.text("🔍 Setting up ad group...")
-            clean_customer_id = customer_id.replace("-", "")
-            
-            ad_group_resource_name, ad_group_id, error = find_or_create_ad_group(
-                client, 
-                clean_customer_id, 
-                campaign_id, 
-                ad_group_name,
-                ad_group_type_enum # Passing the selected type here
-            )
-            
-            if error:
-                st.error(f"❌ Ad Group error: {error}")
-                st.stop()
-            
-            progress_bar.progress(15)
-            
-            # Step 3: Process each image
-            total_images = len(images)
-            
-            for idx, image in enumerate(images):
-                current_progress = 15 + int((idx / total_images) * 80)
-                status_text.text(f"📤 Processing {idx + 1}/{total_images}: {image['name']}")
-                progress_bar.progress(current_progress)
-                
-                result = {
-                    'creative_name': image['name'],
-                    'file_size': f"{image['size'] / 1024:.1f} KB",
-                    'status': '⏳ Processing',
-                    'ad_id': '',
-                    'error_message': ''
-                }
-                
-                # Upload image
-                asset_resource_name, asset_id, upload_error = upload_image_asset(
-                    client, clean_customer_id, image['data'], image['name']
-                )
-                
-                if upload_error:
-                    result['status'] = '❌ Upload Failed'
-                    result['error_message'] = upload_error
-                    results.append(result)
-                    continue
-                
-                # Create paused ad
-                ad_resource_name, ad_error = create_paused_ad(
-                    client, clean_customer_id, ad_group_resource_name, 
-                    asset_resource_name, image['name'], final_url
-                )
-                
-                if ad_error:
-                    result['status'] = '❌ Ad Creation Failed'
-                    result['error_message'] = ad_error
-                else:
-                    result['status'] = '✅ Uploaded (Paused)'
-                    result['ad_id'] = ad_resource_name.split('/')[-1]
-                
-                results.append(result)
-            
-            progress_bar.progress(100)
-            status_text.text("✅ Processing complete!")
-            
-            # Show results
-            st.balloons()
-            
-            st.markdown("---")
-            st.subheader("📊 Validation Results")
-            
-            # Create DataFrame
-            df = pd.DataFrame(results)
-            
-            # Summary metrics
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Total Creatives", len(results))
-            with col2:
-                success_count = len([r for r in results if '✅' in r['status']])
-                st.metric("Successfully Uploaded", success_count)
-            with col3:
-                failed_count = len([r for r in results if '❌' in r['status']])
-                st.metric("Failed", failed_count)
-            
-            # Results table
-            st.dataframe(
-                df,
-                use_container_width=True,
-                column_config={
-                    "creative_name": "Creative Name",
-                    "file_size": "File Size",
-                    "status": "Status",
-                    "ad_id": "Ad ID",
-                    "error_message": "Error Details"
-                }
-            )
-            
-            # Download CSV
-            csv = df.to_csv(index=False)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            st.download_button(
-                label="📥 Download Results as CSV",
-                data=csv,
-                file_name=f"creative_validation_{timestamp}.csv",
-                mime="text/csv"
-            )
-            
-            # Next steps
-            st.markdown("---")
-            st.subheader("📋 Next Steps")
-            
-            campaign_url = f"https://ads.google.com/aw/ads?campaignId={campaign_id}"
-            
-            st.markdown(f"""
-            1. **Go to your campaign**: [{campaign_url}]({campaign_url})
-            2. **Click 'Ads'** in the left menu
-            3. **Check each ad's Status column**:
-               - ✅ **"Eligible"** = Creative PASSED validation
-               - ❌ **"Disapproved"** = Creative FAILED (hover for reason)
-            4. All ads are **PAUSED** - no money will be spent
-            """)
-            
-            if failed_count > 0:
-                st.warning(f"⚠️ {failed_count} creatives failed to upload. Check the error details in the table above.")
-            
-        except Exception as e:
-            st.error(f"❌ Unexpected error: {str(e)}")
-            import traceback
-            with st.expander("📋 Error Details"):
-                st.code(traceback.format_exc())
-
-# Footer
-st.markdown("---")
-st.markdown("""
-<div style="text-align: center; color: #666;">
-    Made with ❤️ for advertisers | 
-    <a href="https://github.com/nstanley-ui/google_ads_api_checker" target="_blank">GitHub</a> | 
-    <a href="https://developers.google.com/google-ads/api/docs/start" target="_blank">API Docs</a>
-</div>
-""", unsafe_allow_html=True)
+                 res.update({'Status': '✅ Valid', 'Details': 'Ad Created (Paused)'})
+        
+        results.append(res)
+        progress.progress((i + 1) / len(images))
+        
+    st.balloons()
+    st.dataframe(pd.DataFrame(results), use_container_width=True)
