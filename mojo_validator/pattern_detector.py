@@ -64,6 +64,11 @@ class PatternMismatchDetector:
             outliers = self._detect_pattern_outliers(row, df, idx)
             if outliers:
                 issues.extend(outliers)
+            
+            # NEW: Check for intra-row consistency (values within same row that don't match)
+            intra_row = self._detect_intra_row_inconsistency(row, df, idx)
+            if intra_row:
+                issues.extend(intra_row)
         
         return issues
     
@@ -307,6 +312,311 @@ class PatternMismatchDetector:
                     })
         
         return issues
+
+
+    def _detect_intra_row_inconsistency(self, row: pd.Series, df: pd.DataFrame, idx: int) -> List[Dict]:
+        """
+        Detect when values within the same row are inconsistent with each other.
+        
+        Examples:
+        - Campaign: "Summer Sale - Electronics", Ad Group: "Winter Clearance - Furniture"
+        - Headline: "CRM Software", Description: "Accounting Platform"
+        - Campaign 5, Ad Group 12, Ad 3 (numbers don't align)
+        """
+        issues = []
+        
+        # Extract key naming columns
+        campaign_col = None
+        ad_group_col = None
+        ad_name_col = None
+        
+        for col in df.columns:
+            col_lower = col.lower()
+            if 'campaign' in col_lower and 'status' not in col_lower:
+                campaign_col = col
+            elif 'ad group' in col_lower or 'adgroup' in col_lower or 'ad set' in col_lower:
+                ad_group_col = col
+            elif 'ad name' in col_lower:
+                ad_name_col = col
+        
+        # Check for product/brand name inconsistencies
+        text_cols = [c for c in self._find_text_columns(df) if c in row]
+        name_cols = [c for c in [campaign_col, ad_group_col, ad_name_col] if c]
+        all_text_cols = text_cols + name_cols
+        
+        # Extract potential product/brand names from all text fields
+        products = self._extract_product_names(row, all_text_cols)
+        
+        # Only flag if we have clear evidence of DIFFERENT product categories
+        if len(products) >= 2:
+            product_list = list(products.keys())
+            
+            # Check if products are actually different categories
+            different_products = []
+            for i, prod1 in enumerate(product_list):
+                for prod2 in product_list[i+1:]:
+                    # Skip if these are likely related (e.g., "CRM" and "Software")
+                    if self._are_related_products(prod1, prod2):
+                        continue
+                    
+                    # Calculate similarity - only flag if very different
+                    similarity = self._calculate_similarity(prod1.lower(), prod2.lower())
+                    if similarity < 0.25:  # Very different
+                        different_products.append((prod1, prod2, products[prod1], products[prod2]))
+            
+            # Only report if we found truly different products (high confidence)
+            if len(different_products) >= 1:
+                prod1, prod2, col1, col2 = different_products[0]
+                confidence = 0.91 + min(0.04, len(different_products) * 0.02)
+                
+                issues.append({
+                    'row_idx': idx,
+                    'column': 'Multiple',
+                    'severity': 'WARNING',
+                    'message': f'Row contains references to different products/categories: "{prod1}" in {col1}, "{prod2}" in {col2}. Data may be mixed from different rows.',
+                    'current_value': f'{col1}: "{prod1}" vs {col2}: "{prod2}"',
+                    'suggestion': 'Verify all values in this row belong to the same product/campaign',
+                    'confidence': confidence,
+                    'mismatch_type': 'intra_row_product'
+                })
+        
+        # Check for theme/season inconsistencies
+        themes = self._extract_themes(row, all_text_cols)
+        
+        if len(themes) >= 2:
+            theme_list = list(themes.keys())
+            conflicting_themes = []
+            
+            # Check for obviously conflicting themes
+            conflicts = [
+                (['summer', 'spring'], ['winter', 'fall', 'autumn']),
+                (['sale', 'discount', 'clearance'], ['premium', 'luxury', 'exclusive']),
+                (['new', 'launch'], ['clearance', 'closeout', 'discontinued']),
+            ]
+            
+            for theme1 in theme_list:
+                for theme2 in theme_list:
+                    if theme1 != theme2:
+                        for conflict_set1, conflict_set2 in conflicts:
+                            if any(t in theme1.lower() for t in conflict_set1) and \
+                               any(t in theme2.lower() for t in conflict_set2):
+                                conflicting_themes.append((theme1, theme2, themes[theme1], themes[theme2]))
+            
+            if conflicting_themes:
+                theme1, theme2, col1, col2 = conflicting_themes[0]
+                
+                issues.append({
+                    'row_idx': idx,
+                    'column': 'Multiple',
+                    'severity': 'WARNING',
+                    'message': f'Row contains conflicting themes: "{theme1}" in {col1}, "{theme2}" in {col2}. May indicate mixed data.',
+                    'current_value': f'{col1}: "{theme1}" vs {col2}: "{theme2}"',
+                    'suggestion': 'Check if campaign theme is consistent across all fields',
+                    'confidence': 0.91,
+                    'mismatch_type': 'intra_row_theme'
+                })
+        
+        # Check for numbering inconsistencies in campaign/ad group/ad names
+        if campaign_col and ad_group_col and ad_name_col:
+            campaign_num = self._extract_number(str(row.get(campaign_col, "")))
+            ad_group_num = self._extract_number(str(row.get(ad_group_col, "")))
+            ad_name_num = self._extract_number(str(row.get(ad_name_col, "")))
+            
+            numbers = [n for n in [campaign_num, ad_group_num, ad_name_num] if n is not None]
+            
+            if len(numbers) >= 2:
+                # Check if numbers are wildly different (likely misaligned)
+                max_num = max(numbers)
+                min_num = min(numbers)
+                
+                # If difference is large and numbers are significant, flag it
+                if max_num > 10 and (max_num - min_num) > max_num * 0.5:
+                    issues.append({
+                        'row_idx': idx,
+                        'column': 'Multiple',
+                        'severity': 'WARNING',
+                        'message': f'Numbering inconsistency detected: Campaign #{campaign_num}, Ad Group #{ad_group_num}, Ad #{ad_name_num}. Numbers may be misaligned.',
+                        'current_value': f'Campaign: {campaign_num}, Group: {ad_group_num}, Ad: {ad_name_num}',
+                        'suggestion': 'Verify numbering sequence is correct across campaign/ad group/ad name',
+                        'confidence': 0.90,
+                        'mismatch_type': 'intra_row_numbering'
+                    })
+        
+        # Check for keyword/topic inconsistencies between headlines and descriptions
+        headline_cols = [c for c in df.columns if 'headline' in c.lower() and c in row]
+        desc_cols = [c for c in df.columns if ('description' in c.lower() or 'intro' in c.lower() or 'text' in c.lower()) and c in row]
+        
+        if headline_cols and desc_cols:
+            headline_keywords = set()
+            for col in headline_cols:
+                if not pd.isna(row[col]):
+                    headline_keywords.update(self._extract_keywords(str(row[col])))
+            
+            desc_keywords = set()
+            for col in desc_cols:
+                if not pd.isna(row[col]):
+                    desc_keywords.update(self._extract_keywords(str(row[col])))
+            
+            # Check for topic overlap
+            if headline_keywords and desc_keywords:
+                overlap = headline_keywords.intersection(desc_keywords)
+                overlap_ratio = len(overlap) / min(len(headline_keywords), len(desc_keywords))
+                
+                # If there's very little overlap, topics might be different
+                if overlap_ratio < 0.15 and len(headline_keywords) >= 2 and len(desc_keywords) >= 3:
+                    # Extract non-overlapping keywords
+                    headline_only = headline_keywords - desc_keywords
+                    desc_only = desc_keywords - headline_keywords
+                    
+                    issues.append({
+                        'row_idx': idx,
+                        'column': 'Multiple',
+                        'severity': 'WARNING',
+                        'message': f'Headlines and descriptions mention different topics. Headlines: {", ".join(list(headline_only)[:3])}, Descriptions: {", ".join(list(desc_only)[:3])}',
+                        'current_value': f'Overlap: {overlap_ratio:.0%}',
+                        'suggestion': 'Verify headlines and descriptions are about the same product/offer',
+                        'confidence': 0.90,
+                        'mismatch_type': 'intra_row_topic'
+                    })
+        
+        return issues
+    
+    def _extract_product_names(self, row: pd.Series, columns: List[str]) -> Dict[str, str]:
+        """Extract potential product/brand names from text fields."""
+        products = {}
+        
+        # Look for multi-word capitalized phrases (more likely to be product names)
+        for col in columns:
+            if col not in row or pd.isna(row[col]):
+                continue
+            
+            text = str(row[col])
+            
+            # Pattern 1: Multiple consecutive capitalized words (e.g., "CloudStore Pro", "Sales Platform")
+            multi_cap = re.findall(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', text)
+            for phrase in multi_cap:
+                # Verify it's not just common sentence structure
+                words = phrase.split()
+                if len(words) >= 2 and not any(w.lower() in ['the', 'and', 'or', 'for', 'with'] for w in words):
+                    if phrase not in products:
+                        products[phrase] = col
+            
+            # Pattern 2: Single capitalized words that appear to be product categories
+            # Only flag if they're very different (e.g., "Electronics" vs "Furniture")
+            product_categories = {
+                'electronics', 'furniture', 'clothing', 'appliances', 'toys', 'books',
+                'software', 'hardware', 'automotive', 'sports', 'beauty', 'jewelry',
+                'food', 'beverages', 'shoes', 'accessories', 'tools', 'garden',
+                'crm', 'accounting', 'marketing', 'analytics', 'project management'
+            }
+            
+            text_lower = text.lower()
+            for category in product_categories:
+                if category in text_lower:
+                    # Capitalize for consistency
+                    cat_title = category.title()
+                    if cat_title not in products:
+                        products[cat_title] = col
+        
+        return products
+    
+    def _extract_themes(self, row: pd.Series, columns: List[str]) -> Dict[str, str]:
+        """Extract themes/keywords from text fields."""
+        themes = {}
+        
+        theme_keywords = {
+            'summer', 'winter', 'spring', 'fall', 'autumn',
+            'sale', 'discount', 'clearance', 'deal',
+            'new', 'launch', 'release',
+            'premium', 'luxury', 'exclusive',
+            'back to school', 'holiday', 'black friday',
+            'closeout', 'discontinued'
+        }
+        
+        for col in columns:
+            if col not in row or pd.isna(row[col]):
+                continue
+            
+            text = str(row[col]).lower()
+            
+            for theme in theme_keywords:
+                if theme in text:
+                    if theme not in themes:
+                        themes[theme] = col
+        
+        return themes
+    
+    def _extract_number(self, text: str) -> Optional[int]:
+        """Extract the first significant number from text."""
+        if not text:
+            return None
+        
+        # Look for numbers in the text
+        numbers = re.findall(r'\d+', text)
+        
+        if numbers:
+            # Return the first number found
+            return int(numbers[0])
+        
+        return None
+    
+    def _extract_keywords(self, text: str) -> set:
+        """Extract meaningful keywords from text (excluding common words)."""
+        common_words = {
+            'the', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from',
+            'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+            'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should',
+            'can', 'could', 'may', 'might', 'must', 'your', 'our', 'their'
+        }
+        
+        # Extract words, convert to lowercase, remove common words
+        words = re.findall(r'\b[a-zA-Z]{3,}\b', text.lower())
+        keywords = {w for w in words if w not in common_words}
+        
+        return keywords
+    
+    def _calculate_similarity(self, str1: str, str2: str) -> float:
+        """Calculate simple similarity between two strings."""
+        if not str1 or not str2:
+            return 0.0
+        
+        # Simple character overlap ratio
+        set1 = set(str1)
+        set2 = set(str2)
+        
+        intersection = len(set1.intersection(set2))
+        union = len(set1.union(set2))
+        
+        return intersection / union if union > 0 else 0.0
+    
+    def _are_related_products(self, prod1: str, prod2: str) -> bool:
+        """Check if two product names/categories are related (same general category)."""
+        prod1_lower = prod1.lower()
+        prod2_lower = prod2.lower()
+        
+        # Filter out common column names or generic terms that aren't products
+        generic_terms = {'ad group', 'campaign', 'group', 'tools', 'platform', 'software'}
+        if prod1_lower in generic_terms or prod2_lower in generic_terms:
+            return True  # Treat as related (ignore)
+        
+        # Define related product groups
+        related_groups = [
+            {'crm', 'software', 'sales', 'marketing', 'platform', 'automation', 'tools'},
+            {'electronics', 'laptop', 'phone', 'tablet', 'computer', 'tech'},
+            {'furniture', 'desk', 'chair', 'table', 'office'},
+            {'clothing', 'fashion', 'apparel', 'shoes', 'accessories'},
+            {'accounting', 'finance', 'bookkeeping', 'invoice', 'payroll'},
+        ]
+        
+        # Check if both products belong to the same group
+        for group in related_groups:
+            in_group1 = any(term in prod1_lower for term in group)
+            in_group2 = any(term in prod2_lower for term in group)
+            
+            if in_group1 and in_group2:
+                return True
+        
+        return False
 
 
 def detect_pattern_mismatches(df: pd.DataFrame, platform: str) -> List[Dict]:
