@@ -128,10 +128,28 @@ with st.sidebar:
     
     platform_override = st.selectbox(
         "Platform Override",
-        ["Auto-Detect", "LinkedIn Ads", "Google Ads", "Meta Ads"],
-        help="Auto-detect analyzes column headers to identify platform"
+        [
+            "Auto-Detect",
+            "─── Google Ads ───",
+            "Google Ads",
+            "Google Display Ads",
+            "Google Video Ads",
+            "─── Meta Ads ───",
+            "Meta Ads",
+            "Meta Video Ads",
+            "Meta Stories & Reels Ads",
+            "─── LinkedIn Ads ───",
+            "LinkedIn Ads",
+            "LinkedIn Video Ads"
+        ],
+        help="Auto-detect analyzes column headers to identify platform and ad type"
     )
-    override_val = None if platform_override == "Auto-Detect" else platform_override
+    
+    # Handle separator selections
+    if platform_override.startswith("───"):
+        override_val = None
+    else:
+        override_val = None if platform_override == "Auto-Detect" else platform_override
     
     st.divider()
     
@@ -459,38 +477,115 @@ with main_tabs[2]:
     
     ---
     
-    ### What Gets Validated?
-    
-    #### LinkedIn Ads
-    - ✅ Character limits (Headline: 200, Introduction: 600)
-    - ✅ Required fields (Landing Page URL, Campaign Name)
-    - ✅ URL format (http/https required)
-    - ✅ Status values (ACTIVE, PAUSED, ARCHIVED)
-    - ✅ Budget minimums ($10+)
+    ### Supported Ad Types
     
     #### Google Ads
+    - ✅ **Search Ads (RSA)** - Responsive Search Ads with up to 15 headlines
+    - ✅ **Display Ads** - Responsive Display Ads for Google Display Network
+    - ✅ **Video Ads** - YouTube TrueView, Bumper, and Video Discovery ads
+    
+    #### Meta Ads
+    - ✅ **Feed Ads** - Facebook and Instagram Feed placements
+    - ✅ **Video Ads** - Video ads for Feed and other placements
+    - ✅ **Stories & Reels** - Vertical format ads for Stories and Reels
+    
+    #### LinkedIn Ads
+    - ✅ **Sponsored Content** - Standard LinkedIn feed ads
+    - ✅ **Video Ads** - Native LinkedIn video ads
+    
+    ---
+    
+    ### What Gets Validated?
+    
+    #### Google Search Ads (RSA)
     - ✅ Headlines 1-15 (30 characters each)
     - ✅ Descriptions 1-4 (90 characters each)
     - ✅ Final URL (required, http/https)
     - ✅ Path fields (15 characters each)
     - ✅ Status values (Enabled, Paused, Removed)
     
-    #### Meta Ads
+    #### Google Display Ads
+    - ✅ Short Headline (30 characters)
+    - ✅ Long Headline (90 characters)
+    - ✅ Description (90 characters)
+    - ✅ Business Name (25 characters)
+    - ✅ Marketing Images (URL validation)
+    - ✅ Final URL (required)
+    
+    #### Google Video Ads
+    - ✅ YouTube Video URL (must be youtube.com or youtu.be)
+    - ✅ Headlines for Video Discovery (30 chars)
+    - ✅ Descriptions (90 characters)
+    - ✅ Call to Action (10 characters)
+    - ✅ Final URL (required)
+    
+    #### Meta Feed Ads
     - ✅ Headline (27 characters - critical!)
     - ✅ Primary Text (125 chars visible)
     - ✅ Link Description (30 characters)
     - ✅ Website URL (required, http/https)
     - ✅ Status values (ACTIVE, PAUSED, ARCHIVED)
     
+    #### Meta Video Ads
+    - ✅ Video URL (required, proper format)
+    - ✅ Primary Text (125 chars visible)
+    - ✅ Headline (27 characters for Feed)
+    - ✅ Description (30 characters)
+    - ✅ Website URL (required)
+    
+    #### Meta Stories & Reels
+    - ✅ Media URL (image or video, 9:16 aspect ratio)
+    - ✅ Headline (25 characters - shorter for vertical!)
+    - ✅ Primary Text (125 characters)
+    - ✅ Website URL (required)
+    - ✅ Placement validation
+    
+    #### LinkedIn Sponsored Content
+    - ✅ Character limits (Headline: 200, Introduction: 600)
+    - ✅ Required fields (Landing Page URL, Campaign Name)
+    - ✅ URL format (http/https required)
+    - ✅ Status values (ACTIVE, PAUSED, ARCHIVED)
+    - ✅ Budget minimums ($10+)
+    
+    #### LinkedIn Video Ads
+    - ✅ Video URL (required, proper format)
+    - ✅ Intro Text (600 chars, 150 recommended)
+    - ✅ Landing Page URL (required)
+    - ✅ Call to Action validation
+    - ✅ Budget minimums ($10+)
+    
     ---
     
     ### Tips for Best Results
     
-    1. **Use Auto-Detect**: Let the validator identify your platform
+    1. **Use Auto-Detect**: Let the validator identify your platform and ad type
     2. **Fix Blockers First**: Focus on 🔴 issues before ⚠️ warnings
     3. **Review Suggestions**: Smart truncation shows exactly what text will look like
     4. **Test with Demos**: Try demo files to learn the tool
     5. **Export Often**: Download validated files frequently as you work
+    6. **Know Your Format**: Display vs Video vs Stories have different requirements!
+    
+    ---
+    
+    ### New Ad Type Requirements
+    
+    #### Display Ads
+    - Multiple image sizes required (landscape, square, logo)
+    - Business name limited to 25 characters
+    - Shorter headlines for better performance
+    
+    #### Video Ads
+    - YouTube URL required for Google Video Ads
+    - Video file URL required for Meta/LinkedIn
+    - Captions highly recommended (85%+ watch without sound)
+    - First 3 seconds critical for engagement
+    - Vertical (9:16) required for Stories/Reels
+    
+    #### Stories & Reels
+    - **CRITICAL**: Must be vertical 9:16 aspect ratio
+    - Much shorter text limits (25 char headline!)
+    - Full-screen immersive experience
+    - Keep important content in safe zone
     
     ---
     
