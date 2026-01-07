@@ -35,9 +35,14 @@ A bulk-file validation + fixing engine for ad operations. This project provides 
    streamlit run app.py
    ```
 
-## Configuration
+## Demo Data
 
-Platform rules are defined in `configs/*.yaml`. You can add new validators or platforms by creating a new YAML file following the existing schema.
+The `samples/` directory contains 50-item demo datasets for each platform:
+- `samples/linkedin_demo_50.csv`
+- `samples/google_demo_50.csv`
+- `samples/meta_demo_50.csv`
+
+Use these files to test the validator and see automatic fixing in action.
 
 ## License
 

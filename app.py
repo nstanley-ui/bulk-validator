@@ -107,4 +107,3 @@ if uploaded_file:
         st.error(f"Error during validation: {str(e)}")
 else:
     st.write("Please upload a file to begin.")
-
