@@ -1,0 +1,107 @@
+platform: LinkedIn Video Ads
+version: "2.0"
+description: "LinkedIn Sponsored Video Ads (Jan 2026)"
+
+validators:
+  # Campaign Info
+  - column: "Campaign Name"
+    required: true
+    type: string
+    max_length: 255
+    message: "Campaign name is required and must be 255 characters or less"
+
+  - column: "Status"
+    required: true
+    values: ["ACTIVE", "PAUSED", "ARCHIVED"]
+    message: "Status must be one of: ACTIVE, PAUSED, ARCHIVED"
+
+  # Video
+  - column: "Video URL"
+    required: true
+    type: url
+    regex: "^https?://.+"
+    message: "Video URL is required and must start with http:// or https://"
+
+  # Ad Creative - Text Fields
+  - column: "Intro Text"
+    required: true
+    type: string
+    max_length: 600
+    recommended_max: 150
+    message: "Intro text is required. Max 600 characters, but 150 or less recommended to avoid truncation"
+
+  # URLs
+  - column: "Landing Page URL"
+    required: true
+    type: url
+    max_length: 2000
+    regex: "^https?://.+"
+    message: "Landing Page URL is required and must start with http:// or https://"
+
+  # Call to Action (optional for video ads)
+  - column: "Call to Action"
+    required: false
+    values: ["LEARN_MORE", "DOWNLOAD", "REGISTER", "APPLY", "SUBSCRIBE", "SIGN_UP", "CONTACT_US", "REQUEST_DEMO", "WATCH", "VIEW_QUOTE"]
+    message: "Call to Action must be from approved list"
+
+  # Budget & Bidding
+  - column: "Daily Budget"
+    required: false
+    type: number
+    min: 10
+    message: "Daily budget must be at least $10"
+
+  - column: "Total Budget"
+    required: false
+    type: number
+    min: 10
+    message: "Total budget must be at least $10"
+
+  # Thumbnail (optional - LinkedIn auto-generates if not provided)
+  - column: "Thumbnail URL"
+    required: false
+    type: url
+    regex: "^https?://.+"
+    message: "Thumbnail URL must start with http:// or https://"
+
+# Auto-fix rules
+fixes:
+  - target_column: "Status"
+    rule: "map_values"
+    mapping:
+      "active": "ACTIVE"
+      "paused": "PAUSED"
+      "pause": "PAUSED"
+      "archived": "ARCHIVED"
+      "archive": "ARCHIVED"
+    auto_apply: false
+
+  - target_column: "Intro Text"
+    rule: "truncate"
+    max_length: 150
+    auto_apply: false
+    warning: "Intro text will be truncated in feed. Consider rewriting."
+
+# Additional validation rules
+validation_rules:
+  - rule: "check_url_protocol"
+    columns: ["Video URL", "Landing Page URL", "Thumbnail URL"]
+    message: "URLs must include http:// or https://"
+
+  - rule: "check_capitalization"
+    columns: ["Intro Text"]
+    max_uppercase_ratio: 0.5
+    message: "Excessive capitalization may trigger spam filters"
+
+notes:
+  - "Video format: MP4 (H.264 codec) recommended"
+  - "Video length: 3 seconds to 30 minutes (3-15 seconds recommended for engagement)"
+  - "Aspect ratio: 1:1 (square), 1.91:1 (horizontal), 4:5 (vertical), 9:16 (stories)"
+  - "Recommended: 1:1 square for best mobile performance"
+  - "Min resolution: 360p, recommended 1080p"
+  - "File size: Max 200MB"
+  - "Thumbnail: Auto-generated from video or upload custom (JPG/PNG, 1200x627)"
+  - "Captions: Highly recommended (85% watch without sound)"
+  - "First 3 seconds critical: Hook viewers immediately"
+  - "Video must be uploaded to LinkedIn (not external hosting)"
+  - "Best practices: Keep under 15 seconds, use captions, mobile-first design"
